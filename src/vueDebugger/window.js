@@ -4,7 +4,7 @@
  * 所以必须使用特殊手段才能访问到页面真实的window对象，于是就有了下面这个函数
  * @returns {Promise<void>}
  */
- async function getPageWindow () {
+async function getPageWindow () {
   return new Promise(function (resolve, reject) {
     if (window._pageWindow) {
       return resolve(window._pageWindow)

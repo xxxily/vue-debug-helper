@@ -1,9 +1,8 @@
 import './comment'
-// import I18n from '../libs/I18n/index'
-// import monkeyMenu from './monkeyMenu'
 import debug from './debug'
 import mixinRegister from './vueMixin'
 import menuRegister from './menuRegister'
+import hotKeyRegister from './hotKeyRegister'
 
 import {
   getPageWindow
@@ -16,26 +15,28 @@ window._debugMode_ = true
   debug.log('init')
 
   const win = await getPageWindow()
-  if(win.Vue) {
+  if (win.Vue) {
     mixinRegister(win.Vue)
     menuRegister()
-    debug.log('mixinRegister success')
+    hotKeyRegister()
+    debug.log('vue debug helper register success')
     registerStatus = 'success'
-  }else{
+  } else {
     win.__originalVue__ = null
     Object.defineProperty(win, 'Vue', {
       enumerable: true,
       configurable: true,
-      get() {
+      get () {
         return win.__originalVue__
       },
-      set(value) {
+      set (value) {
         win.__originalVue__ = value
-    
-        if(value && value.mixin) {
+
+        if (value && value.mixin) {
           mixinRegister(value)
           menuRegister()
-          debug.log('mixinRegister success')
+          hotKeyRegister()
+          debug.log('vue debug helper register success')
           registerStatus = 'success'
         }
       }
@@ -43,7 +44,7 @@ window._debugMode_ = true
   }
 
   setTimeout(() => {
-    if(registerStatus !== 'success') {
+    if (registerStatus !== 'success') {
       debug.warn('vue debug helper register failed, please check if vue is loaded .', win.location.href)
     }
   }, 5000)
