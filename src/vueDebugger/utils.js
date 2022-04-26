@@ -7,10 +7,10 @@
  * @param {object} opts.value -可选 指定对象值的别名，默认为'value'
  * @returns {array} 返回一个数组，其结构应该类似于：[{key: key1, value: []}, {key: key2, value: []}]
  */
- const objSort = (obj, reverse, opts = { key: 'key', value: 'value' }) => {
+const objSort = (obj, reverse, opts = { key: 'key', value: 'value' }) => {
   const arr = []
   for (const key in obj) {
-    if (obj.hasOwnProperty(key) && Array.isArray(obj[key])) {
+    if (Object.prototype.hasOwnProperty.call(obj, key) && Array.isArray(obj[key])) {
       const tmpObj = {}
       tmpObj[opts.key] = key
       tmpObj[opts.value] = obj[key]
@@ -31,7 +31,7 @@
  * @param {number} size -可选 指定数据长度，默认为1024
  * @param {string} str - 可选 指定数据的字符串，默认为'd'
  */
- function createEmptyData(size = 1024, str = 'd') {
+function createEmptyData (size = 1024, str = 'd') {
   const arr = []
   arr.length = size + 1
   return arr.join(str)
