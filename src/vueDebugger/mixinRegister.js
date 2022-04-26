@@ -66,8 +66,9 @@ function mixinRegister (Vue) {
         if (needDd) {
           const size = helper.ddConfig.size * 1024
           const componentInfo = `tag: ${this._componentTag}, uid: ${this._uid}, createdTime: ${this._createdTime}`
-          this.$data.__dd__ = componentInfo + ' ' + helper.methods.createEmptyData(size, 'd')
-          console.log(`[dd success] ${componentInfo}`, this)
+          /* 此处必须使用JSON.stringify对产生的字符串进行消费，否则没法将内存占用上去 */
+          this.$data.__dd__ = componentInfo + ' ' + JSON.stringify(helper.methods.createEmptyData(size, 'd'))
+          console.log(`[dd success] ${componentInfo} componentChain: ${this._componentChain}`)
         }
       }
     },

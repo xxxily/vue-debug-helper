@@ -33,7 +33,8 @@ function menuRegister () {
   })
 
   monkeyMenu.on('清空统计信息', () => {
-    debug.log('清空统计信息', helper.methods.clearAll())
+    helper.methods.clearAll()
+    debug.log('清空统计信息')
   })
 
   monkeyMenu.on('数据注入（dd）', () => {

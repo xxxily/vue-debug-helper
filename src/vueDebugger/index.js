@@ -1,8 +1,12 @@
 import './comment'
 import debug from './debug'
-import mixinRegister from './vueMixin'
+import mixinRegister from './mixinRegister'
 import menuRegister from './menuRegister'
 import hotKeyRegister from './hotKeyRegister'
+
+import {
+  isInIframe
+} from '../libs/utils/index'
 
 import {
   getPageWindow
@@ -12,6 +16,11 @@ let registerStatus = 'init'
 window._debugMode_ = true
 
 ;(async function () {
+  if (isInIframe()) {
+    debug.log('running in iframe, skip init', window.location.href)
+    return false
+  }
+
   debug.log('init')
 
   const win = await getPageWindow()
