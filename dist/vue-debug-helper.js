@@ -1,18 +1,19 @@
 // ==UserScript==
 // @name         vue-debug-helper
 // @name:en      vue-debug-helper
-// @name:zh      vue调试分析助手
-// @name:zh-TW   Vue組件探測、統計、分析輔助腳本
-// @name:ja      Vueコンポーネントの検出、統計、分析補助スクリプト
+// @name:zh      Vue调试分析助手
+// @name:zh-TW   Vue調試分析助手
+// @name:ja      Vueデバッグ分析アシスタント
 // @namespace    https://github.com/xxxily/vue-debug-helper
 // @homepage     https://github.com/xxxily/vue-debug-helper
-// @version      0.0.1
-// @description  vue components debug helper
-// @description:en  vue components debug helper
+// @version      0.0.2
+// @description  Vue components debug helper
+// @description:en  Vue components debug helper
 // @description:zh  Vue组件探测、统计、分析辅助脚本
 // @description:zh-TW  Vue組件探測、統計、分析輔助腳本
 // @description:ja  Vueコンポーネントの検出、統計、分析補助スクリプト
 // @author       ankvps
+// @icon         https://cdn.jsdelivr.net/gh/xxxily/vue-debug-helper@main/logo.png
 // @match        http://*/*
 // @match        https://*/*
 // @grant        unsafeWindow
@@ -151,7 +152,7 @@ const methods = {
   objSort,
   createEmptyData,
   /* 清除全部helper的全部记录数据，以便重新统计 */
-  clearAll() {
+  clearAll () {
     helper.components = {};
     helper.componentsSummary = {};
     helper.componentsSummaryStatistics = {};
@@ -164,7 +165,7 @@ const methods = {
    * 如果一直没运行过清理函数，则表示统计页面创建至今依然存活的组件对象
    * 运行过清理函数，则表示统计清理后新创建且至今依然存活的组件对象
    */
-  componentsStatistics(reverse = true) {
+  componentsStatistics (reverse = true) {
     const tmpObj = {};
 
     Object.keys(helper.components).forEach(key => {
@@ -184,7 +185,7 @@ const methods = {
   /**
    * 对componentsSummaryStatistics进行排序输出，以便可以直观查看组件的创建情况
    */
-  componentsSummaryStatisticsSort(reverse = true) {
+  componentsSummaryStatisticsSort (reverse = true) {
     return objSort(helper.componentsSummaryStatistics, reverse, {
       key: 'componentName',
       value: 'componentsSummary'
@@ -194,7 +195,7 @@ const methods = {
   /**
    * 对destroyList进行排序输出，以便可以直观查看组件的销毁情况
    */
-  destroyStatisticsSort(reverse = true) {
+  destroyStatisticsSort (reverse = true) {
     return objSort(helper.destroyStatistics, reverse, {
       key: 'componentName',
       value: 'destroyList'
@@ -204,7 +205,7 @@ const methods = {
   /**
    * 对destroyList进行排序输出，以便可以直观查看组件的销毁情况
    */
-  getDestroyByDuration(duration = 1000) {
+  getDestroyByDuration (duration = 1000) {
     const destroyList = helper.destroyList;
     const destroyListLength = destroyList.length;
     const destroyListDuration = destroyList.map(item => item.duration).sort();
@@ -230,11 +231,14 @@ const methods = {
   /**
    * 获取组件的调用链信息
    */
-  getComponentChain(component, moreDetail = false) {
+  getComponentChain (component, moreDetail = false) {
     const result = [];
     let current = component;
+    let deep = 0;
 
-    while (current) {
+    while (current && deep < 50) {
+      deep++;
+
       if (moreDetail) {
         result.push({
           name: current._componentName,
@@ -260,7 +264,7 @@ const methods = {
    * @param {number} size -可选 指定注入空数据的大小，单位Kb，默认为1024Kb，即1Mb
    * @returns
    */
-  dd(filter, size = 1024) {
+  dd (filter, size = 1024) {
     filter = filter || [];
 
     /* 如果是字符串，则支持通过, | 两个符号来指定多个组件名称的过滤器 */
@@ -282,7 +286,7 @@ const methods = {
     };
   },
   /* 禁止给组件注入空数据 */
-  undd() {
+  undd () {
     helper.ddConfig = {
       enabled: false,
       filters: [],
@@ -1229,6 +1233,81 @@ function hotKeyRegister () {
   });
 }
 
+/*!
+ * @name         vueDetector.js
+ * @description  检测页面是否存在Vue对象
+ * @version      0.0.1
+ * @author       xxxily
+ * @date         2022/04/27 11:43
+ * @github       https://github.com/xxxily
+ */
+
+/**
+ * 检测页面是否存在Vue对象，方法参考：https://github.com/vuejs/devtools/blob/main/packages/shell-chrome/src/detector.js
+ * @param {window} win windwod对象
+ * @param {function} callback 检测到Vue对象后的回调函数
+ */
+function vueDetect (win, callback) {
+  let delay = 1000;
+  let detectRemainingTries = 10;
+
+  function runDetect () {
+    // Method 1: use defineProperty to detect Vue, has BUG, so use Method 2
+    // 使用下面方式会导致 'Vue' in window 为 true，从而引发其他问题
+    // Object.defineProperty(win, 'Vue', {
+    //   enumerable: true,
+    //   configurable: true,
+    //   get () {
+    //     return win.__originalVue__
+    //   },
+    //   set (value) {
+    //     win.__originalVue__ = value
+
+    //     if (value && value.mixin) {
+    //       callback(value)
+    //     }
+    //   }
+    // })
+
+    // Method 2: Check  Vue 3
+    const vueDetected = !!(window.__VUE__);
+    if (vueDetected) {
+      callback(window.__VUE__);
+      return
+    }
+
+    // Method 3: Scan all elements inside document
+    const all = document.querySelectorAll('*');
+    let el;
+    for (let i = 0; i < all.length; i++) {
+      if (all[i].__vue__) {
+        el = all[i];
+        break
+      }
+    }
+    if (el) {
+      let Vue = Object.getPrototypeOf(el.__vue__).constructor;
+      while (Vue.super) {
+        Vue = Vue.super;
+      }
+      callback(Vue);
+      return
+    }
+
+    if (detectRemainingTries > 0) {
+      detectRemainingTries--;
+      setTimeout(() => {
+        runDetect();
+      }, delay);
+      delay *= 5;
+    }
+  }
+
+  setTimeout(() => {
+    runDetect();
+  }, 100);
+}
+
 /**
  * 判断是否处于Iframe中
  * @returns {boolean}
@@ -1281,37 +1360,18 @@ window._debugMode_ = true
   debug.log('init');
 
   const win = await getPageWindow();
-  if (win.Vue) {
-    mixinRegister(win.Vue);
+  vueDetect(win, function (Vue) {
+    mixinRegister(Vue);
     menuRegister();
     hotKeyRegister();
+
     debug.log('vue debug helper register success');
     registerStatus = 'success';
-  } else {
-    win.__originalVue__ = null;
-    Object.defineProperty(win, 'Vue', {
-      enumerable: true,
-      configurable: true,
-      get () {
-        return win.__originalVue__
-      },
-      set (value) {
-        win.__originalVue__ = value;
-
-        if (value && value.mixin) {
-          mixinRegister(value);
-          menuRegister();
-          hotKeyRegister();
-          debug.log('vue debug helper register success');
-          registerStatus = 'success';
-        }
-      }
-    });
-  }
+  });
 
   setTimeout(() => {
     if (registerStatus !== 'success') {
       debug.warn('vue debug helper register failed, please check if vue is loaded .', win.location.href);
     }
-  }, 5000);
+  }, 1000 * 10);
 })();

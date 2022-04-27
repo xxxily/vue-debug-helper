@@ -1,18 +1,19 @@
 // ==UserScript==
 // @name         vue-debug-helper
 // @name:en      vue-debug-helper
-// @name:zh      vue调试分析助手
-// @name:zh-TW   Vue組件探測、統計、分析輔助腳本
-// @name:ja      Vueコンポーネントの検出、統計、分析補助スクリプト
+// @name:zh      Vue调试分析助手
+// @name:zh-TW   Vue調試分析助手
+// @name:ja      Vueデバッグ分析アシスタント
 // @namespace    https://github.com/xxxily/vue-debug-helper
 // @homepage     https://github.com/xxxily/vue-debug-helper
-// @version      0.0.1
-// @description  vue components debug helper
-// @description:en  vue components debug helper
+// @version      0.0.2
+// @description  Vue components debug helper
+// @description:en  Vue components debug helper
 // @description:zh  Vue组件探测、统计、分析辅助脚本
 // @description:zh-TW  Vue組件探測、統計、分析輔助腳本
 // @description:ja  Vueコンポーネントの検出、統計、分析補助スクリプト
 // @author       ankvps
+// @icon         https://cdn.jsdelivr.net/gh/xxxily/vue-debug-helper@main/logo.png
 // @match        http://*/*
 // @match        https://*/*
 // @grant        unsafeWindow

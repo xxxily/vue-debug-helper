@@ -28,7 +28,7 @@ const methods = {
   objSort,
   createEmptyData,
   /* 清除全部helper的全部记录数据，以便重新统计 */
-  clearAll() {
+  clearAll () {
     helper.components = {}
     helper.componentsSummary = {}
     helper.componentsSummaryStatistics = {}
@@ -41,7 +41,7 @@ const methods = {
    * 如果一直没运行过清理函数，则表示统计页面创建至今依然存活的组件对象
    * 运行过清理函数，则表示统计清理后新创建且至今依然存活的组件对象
    */
-  componentsStatistics(reverse = true) {
+  componentsStatistics (reverse = true) {
     const tmpObj = {}
 
     Object.keys(helper.components).forEach(key => {
@@ -61,7 +61,7 @@ const methods = {
   /**
    * 对componentsSummaryStatistics进行排序输出，以便可以直观查看组件的创建情况
    */
-  componentsSummaryStatisticsSort(reverse = true) {
+  componentsSummaryStatisticsSort (reverse = true) {
     return objSort(helper.componentsSummaryStatistics, reverse, {
       key: 'componentName',
       value: 'componentsSummary'
@@ -71,7 +71,7 @@ const methods = {
   /**
    * 对destroyList进行排序输出，以便可以直观查看组件的销毁情况
    */
-  destroyStatisticsSort(reverse = true) {
+  destroyStatisticsSort (reverse = true) {
     return objSort(helper.destroyStatistics, reverse, {
       key: 'componentName',
       value: 'destroyList'
@@ -81,7 +81,7 @@ const methods = {
   /**
    * 对destroyList进行排序输出，以便可以直观查看组件的销毁情况
    */
-  getDestroyByDuration(duration = 1000) {
+  getDestroyByDuration (duration = 1000) {
     const destroyList = helper.destroyList
     const destroyListLength = destroyList.length
     const destroyListDuration = destroyList.map(item => item.duration).sort()
@@ -107,11 +107,14 @@ const methods = {
   /**
    * 获取组件的调用链信息
    */
-  getComponentChain(component, moreDetail = false) {
+  getComponentChain (component, moreDetail = false) {
     const result = []
     let current = component
+    let deep = 0
 
-    while (current) {
+    while (current && deep < 50) {
+      deep++
+
       if (moreDetail) {
         result.push({
           name: current._componentName,
@@ -137,7 +140,7 @@ const methods = {
    * @param {number} size -可选 指定注入空数据的大小，单位Kb，默认为1024Kb，即1Mb
    * @returns
    */
-  dd(filter, size = 1024) {
+  dd (filter, size = 1024) {
     filter = filter || []
 
     /* 如果是字符串，则支持通过, | 两个符号来指定多个组件名称的过滤器 */
@@ -159,7 +162,7 @@ const methods = {
     }
   },
   /* 禁止给组件注入空数据 */
-  undd() {
+  undd () {
     helper.ddConfig = {
       enabled: false,
       filters: [],
