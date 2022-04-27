@@ -67,7 +67,7 @@ function mixinRegister (Vue) {
           const size = helper.ddConfig.size * 1024
           const componentInfo = `tag: ${this._componentTag}, uid: ${this._uid}, createdTime: ${this._createdTime}`
           /* 此处必须使用JSON.stringify对产生的字符串进行消费，否则没法将内存占用上去 */
-          this.$data.__dd__ = componentInfo + ' ' + JSON.stringify(helper.methods.createEmptyData(size, 'd'))
+          this.$data.__dd__ = JSON.stringify(componentInfo + ' ' + helper.methods.createEmptyData(size, this._uid))
           console.log(`[dd success] ${componentInfo} componentChain: ${this._componentChain}`)
         }
       }
@@ -101,6 +101,7 @@ function mixinRegister (Vue) {
         delete this._componentChain
         delete this._componentName
         delete this._createdTime
+        delete this.$data.__dd__
         delete helper.components[uid]
       } else {
         console.error('存在未被正常标记的组件，请检查组件采集逻辑是否需完善', this)

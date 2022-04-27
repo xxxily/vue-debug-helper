@@ -168,6 +168,12 @@ const methods = {
       filters: [],
       size: 1024
     }
+
+    /* 删除之前注入的数据 */
+    Object.keys(helper.components).forEach(key => {
+      const component = helper.components[key]
+      component.$data && delete component.$data.__dd__
+    })
   }
 }
 

@@ -28,12 +28,12 @@ const objSort = (obj, reverse, opts = { key: 'key', value: 'value' }) => {
 
 /**
  * 根据指定长度创建空白数据
- * @param {number} size -可选 指定数据长度，默认为1024
- * @param {string} str - 可选 指定数据的字符串，默认为'd'
+ * @param {number} size -可选 指str的重复次数，默认为1024次，如果str为单个单字节字符，则意味着默认产生1Mb的空白数据
+ * @param {string|number|any} str - 可选 指定数据的字符串，默认为'd'
  */
-function createEmptyData (size = 1024, str = 'd') {
+function createEmptyData (count = 1024, str = 'd') {
   const arr = []
-  arr.length = size + 1
+  arr.length = count + 1
   return arr.join(str)
 }
 

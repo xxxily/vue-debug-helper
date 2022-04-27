@@ -11,7 +11,18 @@ import monkeyMenu from './monkeyMenu'
 import debug from './debug'
 import i18n from './i18n'
 
-function menuRegister () {
+function menuRegister (Vue) {
+  if (!Vue) {
+    monkeyMenu.on('not detected' + i18n.t('issues'), () => {
+      window.GM_openInTab('https://github.com/xxxily/vue-debug-helper/issues', {
+        active: true,
+        insert: true,
+        setParent: true
+      })
+    })
+    return false
+  }
+
   monkeyMenu.on('查看vueDebugHelper对象', () => {
     debug.log('vueDebugHelper对象', helper)
   })
@@ -38,10 +49,12 @@ function menuRegister () {
   })
 
   monkeyMenu.on('数据注入（dd）', () => {
-    const filter = window.prompt('组件过滤器（如果为空，则对所有组件注入）', '')
-    const size = window.prompt('指定注入数据的大小值（默认1Mb）', 1024)
+    const filter = window.prompt('组件过滤器（如果为空，则对所有组件注入）', localStorage.getItem('vueDebugHelper_dd_filter') || '')
+    const count = window.prompt('指定注入数据的重复次数（默认1024）', localStorage.getItem('vueDebugHelper_dd_count') || 1024)
+    filter && localStorage.setItem('vueDebugHelper_dd_filter', filter)
+    count && localStorage.setItem('vueDebugHelper_dd_count', count)
     debug.log('数据注入（dd）')
-    helper.methods.dd(filter, Number(size))
+    helper.methods.dd(filter, Number(count))
   })
 
   monkeyMenu.on('取消数据注入（undd）', () => {
@@ -61,13 +74,13 @@ function menuRegister () {
     })
   })
 
-  monkeyMenu.on(i18n.t('donate'), () => {
-    window.GM_openInTab('https://cdn.jsdelivr.net/gh/xxxily/h5player@master/donate.png', {
-      active: true,
-      insert: true,
-      setParent: true
-    })
-  })
+  // monkeyMenu.on(i18n.t('donate'), () => {
+  //   window.GM_openInTab('https://cdn.jsdelivr.net/gh/xxxily/vue-debug-helper@main/donate.png', {
+  //     active: true,
+  //     insert: true,
+  //     setParent: true
+  //   })
+  // })
 }
 
 export default menuRegister

@@ -27,8 +27,8 @@ window._debugMode_ = true
   const win = await getPageWindow()
   vueDetector(win, function (Vue) {
     mixinRegister(Vue)
-    menuRegister()
-    hotKeyRegister()
+    menuRegister(Vue)
+    hotKeyRegister(Vue)
 
     debug.log('vue debug helper register success')
     registerStatus = 'success'
@@ -38,5 +38,6 @@ window._debugMode_ = true
     if (registerStatus !== 'success') {
       debug.warn('vue debug helper register failed, please check if vue is loaded .', win.location.href)
     }
+    menuRegister(null)
   }, 1000 * 10)
 })()

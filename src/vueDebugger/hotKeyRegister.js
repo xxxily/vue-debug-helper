@@ -26,14 +26,16 @@ function hotKeyRegister () {
       debug.log('清空统计信息')
     },
     'shift+alt+e': function (event, handler) {
-      if (helper.ddConfig.enable) {
+      if (helper.ddConfig.enabled) {
         debug.log('取消数据注入（undd）')
         helper.methods.undd()
       } else {
-        const filter = window.prompt('组件过滤器（如果为空，则对所有组件注入）', '')
-        const size = window.prompt('指定注入数据的大小值（默认1Mb）', 1024)
+        const filter = window.prompt('组件过滤器（如果为空，则对所有组件注入）', localStorage.getItem('vueDebugHelper_dd_filter') || '')
+        const count = window.prompt('指定注入数据的重复次数（默认1024）', localStorage.getItem('vueDebugHelper_dd_count') || 1024)
+        filter && localStorage.setItem('vueDebugHelper_dd_filter', filter)
+        count && localStorage.setItem('vueDebugHelper_dd_count', count)
         debug.log('数据注入（dd）')
-        helper.methods.dd(filter, Number(size))
+        helper.methods.dd(filter, Number(count))
       }
     }
   }

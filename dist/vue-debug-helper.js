@@ -6,7 +6,7 @@
 // @name:ja      Vueデバッグ分析アシスタント
 // @namespace    https://github.com/xxxily/vue-debug-helper
 // @homepage     https://github.com/xxxily/vue-debug-helper
-// @version      0.0.2
+// @version      0.0.3
 // @description  Vue components debug helper
 // @description:en  Vue components debug helper
 // @description:zh  Vue组件探测、统计、分析辅助脚本
@@ -118,12 +118,12 @@ const objSort = (obj, reverse, opts = { key: 'key', value: 'value' }) => {
 
 /**
  * 根据指定长度创建空白数据
- * @param {number} size -可选 指定数据长度，默认为1024
- * @param {string} str - 可选 指定数据的字符串，默认为'd'
+ * @param {number} size -可选 指str的重复次数，默认为1024次，如果str为单个单字节字符，则意味着默认产生1Mb的空白数据
+ * @param {string|number|any} str - 可选 指定数据的字符串，默认为'd'
  */
-function createEmptyData (size = 1024, str = 'd') {
+function createEmptyData (count = 1024, str = 'd') {
   const arr = [];
-  arr.length = size + 1;
+  arr.length = count + 1;
   return arr.join(str)
 }
 
@@ -292,6 +292,12 @@ const methods = {
       filters: [],
       size: 1024
     };
+
+    /* 删除之前注入的数据 */
+    Object.keys(helper.components).forEach(key => {
+      const component = helper.components[key];
+      component.$data && delete component.$data.__dd__;
+    });
   }
 };
 
@@ -363,7 +369,7 @@ function mixinRegister (Vue) {
           const size = helper.ddConfig.size * 1024;
           const componentInfo = `tag: ${this._componentTag}, uid: ${this._uid}, createdTime: ${this._createdTime}`;
           /* 此处必须使用JSON.stringify对产生的字符串进行消费，否则没法将内存占用上去 */
-          this.$data.__dd__ = componentInfo + ' ' + JSON.stringify(helper.methods.createEmptyData(size, 'd'));
+          this.$data.__dd__ = JSON.stringify(componentInfo + ' ' + helper.methods.createEmptyData(size, this._uid));
           console.log(`[dd success] ${componentInfo} componentChain: ${this._componentChain}`);
         }
       }
@@ -397,6 +403,7 @@ function mixinRegister (Vue) {
         delete this._componentChain;
         delete this._componentName;
         delete this._createdTime;
+        delete this.$data.__dd__;
         delete helper.components[uid];
       } else {
         console.error('存在未被正常标记的组件，请检查组件采集逻辑是否需完善', this);
@@ -564,7 +571,18 @@ const i18n = new I18n({
  * @github       https://github.com/xxxily
  */
 
-function menuRegister () {
+function menuRegister (Vue) {
+  if (!Vue) {
+    monkeyMenu.on('not detected' + i18n.t('issues'), () => {
+      window.GM_openInTab('https://github.com/xxxily/vue-debug-helper/issues', {
+        active: true,
+        insert: true,
+        setParent: true
+      });
+    });
+    return false
+  }
+
   monkeyMenu.on('查看vueDebugHelper对象', () => {
     debug.log('vueDebugHelper对象', helper);
   });
@@ -591,10 +609,12 @@ function menuRegister () {
   });
 
   monkeyMenu.on('数据注入（dd）', () => {
-    const filter = window.prompt('组件过滤器（如果为空，则对所有组件注入）', '');
-    const size = window.prompt('指定注入数据的大小值（默认1Mb）', 1024);
+    const filter = window.prompt('组件过滤器（如果为空，则对所有组件注入）', localStorage.getItem('vueDebugHelper_dd_filter') || '');
+    const count = window.prompt('指定注入数据的重复次数（默认1024）', localStorage.getItem('vueDebugHelper_dd_count') || 1024);
+    filter && localStorage.setItem('vueDebugHelper_dd_filter', filter);
+    count && localStorage.setItem('vueDebugHelper_dd_count', count);
     debug.log('数据注入（dd）');
-    helper.methods.dd(filter, Number(size));
+    helper.methods.dd(filter, Number(count));
   });
 
   monkeyMenu.on('取消数据注入（undd）', () => {
@@ -614,13 +634,13 @@ function menuRegister () {
     });
   });
 
-  monkeyMenu.on(i18n.t('donate'), () => {
-    window.GM_openInTab('https://cdn.jsdelivr.net/gh/xxxily/h5player@master/donate.png', {
-      active: true,
-      insert: true,
-      setParent: true
-    });
-  });
+  // monkeyMenu.on(i18n.t('donate'), () => {
+  //   window.GM_openInTab('https://cdn.jsdelivr.net/gh/xxxily/vue-debug-helper@main/donate.png', {
+  //     active: true,
+  //     insert: true,
+  //     setParent: true
+  //   })
+  // })
 }
 
 const isff = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase().indexOf('firefox') > 0 : false;
@@ -1216,14 +1236,16 @@ function hotKeyRegister () {
       debug.log('清空统计信息');
     },
     'shift+alt+e': function (event, handler) {
-      if (helper.ddConfig.enable) {
+      if (helper.ddConfig.enabled) {
         debug.log('取消数据注入（undd）');
         helper.methods.undd();
       } else {
-        const filter = window.prompt('组件过滤器（如果为空，则对所有组件注入）', '');
-        const size = window.prompt('指定注入数据的大小值（默认1Mb）', 1024);
+        const filter = window.prompt('组件过滤器（如果为空，则对所有组件注入）', localStorage.getItem('vueDebugHelper_dd_filter') || '');
+        const count = window.prompt('指定注入数据的重复次数（默认1024）', localStorage.getItem('vueDebugHelper_dd_count') || 1024);
+        filter && localStorage.setItem('vueDebugHelper_dd_filter', filter);
+        count && localStorage.setItem('vueDebugHelper_dd_count', count);
         debug.log('数据注入（dd）');
-        helper.methods.dd(filter, Number(size));
+        helper.methods.dd(filter, Number(count));
       }
     }
   };
@@ -1362,7 +1384,7 @@ window._debugMode_ = true
   const win = await getPageWindow();
   vueDetect(win, function (Vue) {
     mixinRegister(Vue);
-    menuRegister();
+    menuRegister(Vue);
     hotKeyRegister();
 
     debug.log('vue debug helper register success');
@@ -1373,5 +1395,6 @@ window._debugMode_ = true
     if (registerStatus !== 'success') {
       debug.warn('vue debug helper register failed, please check if vue is loaded .', win.location.href);
     }
+    menuRegister(null);
   }, 1000 * 10);
 })();
