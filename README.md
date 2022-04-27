@@ -30,8 +30,3 @@ Vue组件探测、统计、分析辅助脚本，主要用于分析当前应用�
 
 ## 更新日志
 * [https://github.com/xxxily/vue-debug-helper/blob/main/changeLog.md](https://github.com/xxxily/vue-debug-helper/blob/main/changeLog.md)
-
-## 给我赞赏
-如果我的努力给你带来了便利，请不要吝啬你的赞赏
-
-![如果我的努力给你带来了便利，请不要吝啬你的赞赏](https://cdn.jsdelivr.net/gh/xxxily/h5player@master/donate.png "如果我的努力给你带来了便利，请不要吝啬你的赞赏")
