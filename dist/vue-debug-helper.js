@@ -38,56 +38,6 @@
 // ==/UserScript==
 (function (w) { if (w) { w._vueDebugHelper_ = 'https://github.com/xxxily/vue-debug-helper'; } })();
 
-class Debug {
-  constructor (msg) {
-    const t = this;
-    msg = msg || 'debug message:';
-    t.log = t.createDebugMethod('log', null, msg);
-    t.error = t.createDebugMethod('error', null, msg);
-    t.info = t.createDebugMethod('info', null, msg);
-    t.warn = t.createDebugMethod('warn', null, msg);
-  }
-
-  create (msg) {
-    return new Debug(msg)
-  }
-
-  createDebugMethod (name, color, tipsMsg) {
-    name = name || 'info';
-
-    const bgColorMap = {
-      info: '#2274A5',
-      log: '#95B46A',
-      error: '#D33F49'
-    };
-
-    return function () {
-      if (!window._debugMode_) {
-        return false
-      }
-
-      const curTime = new Date();
-      const H = curTime.getHours();
-      const M = curTime.getMinutes();
-      const S = curTime.getSeconds();
-      const msg = tipsMsg || 'debug message:';
-
-      const arg = Array.from(arguments);
-      arg.unshift(`color: white; background-color: ${color || bgColorMap[name] || '#95B46A'}`);
-      arg.unshift(`%c [${H}:${M}:${S}] ${msg} `);
-      window.console[name].apply(window.console, arg);
-    }
-  }
-
-  isDebugMode () {
-    return Boolean(window._debugMode_)
-  }
-}
-
-var Debug$1 = new Debug();
-
-var debug = Debug$1.create('vue-debug-helper message:');
-
 /**
  * 对特定数据结构的对象进行排序
  * @param {object} obj 一个对象，其结构应该类似于：{key1: [], key2: []}
@@ -302,6 +252,56 @@ const methods = {
 };
 
 helper.methods = methods;
+
+class Debug {
+  constructor (msg) {
+    const t = this;
+    msg = msg || 'debug message:';
+    t.log = t.createDebugMethod('log', null, msg);
+    t.error = t.createDebugMethod('error', null, msg);
+    t.info = t.createDebugMethod('info', null, msg);
+    t.warn = t.createDebugMethod('warn', null, msg);
+  }
+
+  create (msg) {
+    return new Debug(msg)
+  }
+
+  createDebugMethod (name, color, tipsMsg) {
+    name = name || 'info';
+
+    const bgColorMap = {
+      info: '#2274A5',
+      log: '#95B46A',
+      error: '#D33F49'
+    };
+
+    return function () {
+      if (!window._debugMode_) {
+        return false
+      }
+
+      const curTime = new Date();
+      const H = curTime.getHours();
+      const M = curTime.getMinutes();
+      const S = curTime.getSeconds();
+      const msg = tipsMsg || 'debug message:';
+
+      const arg = Array.from(arguments);
+      arg.unshift(`color: white; background-color: ${color || bgColorMap[name] || '#95B46A'}`);
+      arg.unshift(`%c [${H}:${M}:${S}] ${msg} `);
+      window.console[name].apply(window.console, arg);
+    }
+  }
+
+  isDebugMode () {
+    return Boolean(window._debugMode_)
+  }
+}
+
+var Debug$1 = new Debug();
+
+var debug = Debug$1.create('vue-debug-helper message:');
 
 function mixinRegister (Vue) {
   if (!Vue || !Vue.mixin) {
@@ -519,14 +519,42 @@ var zhCN = {
   setting: '设置',
   hotkeys: '快捷键',
   donate: '赞赏',
+  debugHelper: {
+    viewVueDebugHelperObject: 'vueDebugHelper对象',
+    componentsStatistics: '当前存活组件统计',
+    destroyStatisticsSort: '已销毁组件统计',
+    componentsSummaryStatisticsSort: '全部组件混合统计',
+    getDestroyByDuration: '组件存活时间信息',
+    clearAll: '清空统计信息',
+    dd: '数据注入（dd）',
+    undd: '取消数据注入（undd）',
+    ddPrompt: {
+      filter: '组件过滤器（如果为空，则对所有组件注入）',
+      count: '指定注入数据的重复次数（默认1024）'
+    }
+  }
 };
 
 var enUS = {
   about: 'about',
-  issues: 'issues',
-  setting: 'setting',
-  hotkeys: 'hotkeys',
-  donate: 'donate'
+  issues: 'feedback',
+  setting: 'settings',
+  hotkeys: 'Shortcut keys',
+  donate: 'donate',
+  debugHelper: {
+    viewVueDebugHelperObject: 'vueDebugHelper object',
+    componentsStatistics: 'Current surviving component statistics',
+    destroyStatisticsSort: 'Destroyed component statistics',
+    componentsSummaryStatisticsSort: 'All components mixed statistics',
+    getDestroyByDuration: 'Component survival time information',
+    clearAll: 'Clear statistics',
+    dd: 'Data injection (dd)',
+    undd: 'Cancel data injection (undd)',
+    ddPrompt: {
+      filter: 'Component filter (if empty, inject all components)',
+      count: 'Specify the number of repetitions of injected data (default 1024)'
+    }
+  }
 };
 
 var zhTW = {
@@ -535,6 +563,20 @@ var zhTW = {
   setting: '設置',
   hotkeys: '快捷鍵',
   donate: '讚賞',
+  debugHelper: {
+    viewVueDebugHelperObject: 'vueDebugHelper對象',
+    componentsStatistics: '當前存活組件統計',
+    destroyStatisticsSort: '已銷毀組件統計',
+    componentsSummaryStatisticsSort: '全部組件混合統計',
+    getDestroyByDuration: '組件存活時間信息',
+    clearAll: '清空統計信息',
+    dd: '數據注入（dd）',
+    undd: '取消數據注入（undd）',
+    ddPrompt: {
+      filter: '組件過濾器（如果為空，則對所有組件注入）',
+      count: '指定注入數據的重複次數（默認1024）'
+    }
+  }
 };
 
 const messages = {
@@ -563,6 +605,49 @@ const i18n = new I18n({
 });
 
 /*!
+ * @name         functionCall.js
+ * @description  统一的提供外部功能调用管理模块
+ * @version      0.0.1
+ * @author       xxxily
+ * @date         2022/04/27 17:42
+ * @github       https://github.com/xxxily
+ */
+
+const functionCall = {
+  viewVueDebugHelperObject () {
+    debug.log(i18n.t('debugHelper.viewVueDebugHelperObject'), helper);
+  },
+  componentsStatistics () {
+    debug.log(i18n.t('debugHelper.componentsStatistics'), helper.methods.componentsStatistics());
+  },
+  destroyStatisticsSort () {
+    debug.log(i18n.t('debugHelper.destroyStatisticsSort'), helper.methods.destroyStatisticsSort());
+  },
+  componentsSummaryStatisticsSort () {
+    debug.log(i18n.t('debugHelper.componentsSummaryStatisticsSort'), helper.methods.componentsSummaryStatisticsSort());
+  },
+  getDestroyByDuration () {
+    debug.log(i18n.t('debugHelper.getDestroyByDuration'), helper.methods.getDestroyByDuration());
+  },
+  clearAll () {
+    helper.methods.clearAll();
+    debug.log(i18n.t('debugHelper.clearAll'));
+  },
+  dd () {
+    const filter = window.prompt(i18n.t('debugHelper.ddPrompt.filter'), localStorage.getItem('vueDebugHelper_dd_filter') || '');
+    const count = window.prompt(i18n.t('debugHelper.ddPrompt.count'), localStorage.getItem('vueDebugHelper_dd_count') || 1024);
+    filter && localStorage.setItem('vueDebugHelper_dd_filter', filter);
+    count && localStorage.setItem('vueDebugHelper_dd_count', count);
+    debug.log(i18n.t('debugHelper.dd'));
+    helper.methods.dd(filter, Number(count));
+  },
+  undd () {
+    debug.log(i18n.t('debugHelper.undd'));
+    helper.methods.undd();
+  }
+};
+
+/*!
  * @name         menu.js
  * @description  vue-debug-helper的菜单配置
  * @version      0.0.1
@@ -573,7 +658,7 @@ const i18n = new I18n({
 
 function menuRegister (Vue) {
   if (!Vue) {
-    monkeyMenu.on('not detected' + i18n.t('issues'), () => {
+    monkeyMenu.on('not detected ' + i18n.t('issues'), () => {
       window.GM_openInTab('https://github.com/xxxily/vue-debug-helper/issues', {
         active: true,
         insert: true,
@@ -583,43 +668,12 @@ function menuRegister (Vue) {
     return false
   }
 
-  monkeyMenu.on('查看vueDebugHelper对象', () => {
-    debug.log('vueDebugHelper对象', helper);
-  });
-
-  monkeyMenu.on('当前存活组件统计', () => {
-    debug.log('当前存活组件统计', helper.methods.componentsStatistics());
-  });
-
-  monkeyMenu.on('已销毁组件统计', () => {
-    debug.log('已销毁组件统计', helper.methods.destroyStatisticsSort());
-  });
-
-  monkeyMenu.on('全部组件混合统计', () => {
-    debug.log('全部组件混合统计', helper.methods.componentsSummaryStatisticsSort());
-  });
-
-  monkeyMenu.on('组件存活时间信息', () => {
-    debug.log('组件存活时间信息', helper.methods.getDestroyByDuration());
-  });
-
-  monkeyMenu.on('清空统计信息', () => {
-    helper.methods.clearAll();
-    debug.log('清空统计信息');
-  });
-
-  monkeyMenu.on('数据注入（dd）', () => {
-    const filter = window.prompt('组件过滤器（如果为空，则对所有组件注入）', localStorage.getItem('vueDebugHelper_dd_filter') || '');
-    const count = window.prompt('指定注入数据的重复次数（默认1024）', localStorage.getItem('vueDebugHelper_dd_count') || 1024);
-    filter && localStorage.setItem('vueDebugHelper_dd_filter', filter);
-    count && localStorage.setItem('vueDebugHelper_dd_count', count);
-    debug.log('数据注入（dd）');
-    helper.methods.dd(filter, Number(count));
-  });
-
-  monkeyMenu.on('取消数据注入（undd）', () => {
-    debug.log('取消数据注入（undd）');
-    helper.methods.undd();
+  // 批量注册菜单
+  Object.keys(functionCall).forEach(key => {
+    const text = i18n.t(`debugHelper.${key}`);
+    if (text && functionCall[key] instanceof Function) {
+      monkeyMenu.on(text, functionCall[key]);
+    }
   });
 
   // monkeyMenu.on('i18n.t('setting')', () => {
@@ -1222,30 +1276,15 @@ if (typeof window !== 'undefined') {
 
 function hotKeyRegister () {
   const hotKeyMap = {
-    'shift+alt+a,shift+alt+ctrl+a': function (event, handler) {
-      debug.log('全部组件混合统计', helper.methods.componentsSummaryStatisticsSort());
-    },
-    'shift+alt+l': function (event, handler) {
-      debug.log('当前存活组件统计', helper.methods.componentsStatistics());
-    },
-    'shift+alt+d': function (event, handler) {
-      debug.log('已销毁组件统计', helper.methods.destroyStatisticsSort());
-    },
-    'shift+alt+c': function (event, handler) {
-      helper.methods.clearAll();
-      debug.log('清空统计信息');
-    },
+    'shift+alt+a,shift+alt+ctrl+a': functionCall.componentsSummaryStatisticsSort,
+    'shift+alt+l': functionCall.componentsStatistics,
+    'shift+alt+d': functionCall.destroyStatisticsSort,
+    'shift+alt+c': functionCall.clearAll,
     'shift+alt+e': function (event, handler) {
       if (helper.ddConfig.enabled) {
-        debug.log('取消数据注入（undd）');
-        helper.methods.undd();
+        functionCall.undd();
       } else {
-        const filter = window.prompt('组件过滤器（如果为空，则对所有组件注入）', localStorage.getItem('vueDebugHelper_dd_filter') || '');
-        const count = window.prompt('指定注入数据的重复次数（默认1024）', localStorage.getItem('vueDebugHelper_dd_count') || 1024);
-        filter && localStorage.setItem('vueDebugHelper_dd_filter', filter);
-        count && localStorage.setItem('vueDebugHelper_dd_count', count);
-        debug.log('数据注入（dd）');
-        helper.methods.dd(filter, Number(count));
+        functionCall.dd();
       }
     }
   };
@@ -1387,14 +1426,17 @@ window._debugMode_ = true
     menuRegister(Vue);
     hotKeyRegister();
 
+    // 挂载到window上，方便通过控制台调用调试
+    win.vueDebugHelper = helper;
+
     debug.log('vue debug helper register success');
     registerStatus = 'success';
   });
 
   setTimeout(() => {
     if (registerStatus !== 'success') {
+      menuRegister(null);
       debug.warn('vue debug helper register failed, please check if vue is loaded .', win.location.href);
     }
-    menuRegister(null);
   }, 1000 * 10);
 })();

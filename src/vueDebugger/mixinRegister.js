@@ -1,5 +1,5 @@
-import debug from './debug'
 import helper from './helper'
+import debug from './debug'
 
 function mixinRegister (Vue) {
   if (!Vue || !Vue.mixin) {

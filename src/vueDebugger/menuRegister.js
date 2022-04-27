@@ -6,14 +6,13 @@
  * @date         2022/04/25 22:28
  * @github       https://github.com/xxxily
  */
-import helper from './helper'
 import monkeyMenu from './monkeyMenu'
-import debug from './debug'
+import functionCall from './functionCall'
 import i18n from './i18n'
 
 function menuRegister (Vue) {
   if (!Vue) {
-    monkeyMenu.on('not detected' + i18n.t('issues'), () => {
+    monkeyMenu.on('not detected ' + i18n.t('issues'), () => {
       window.GM_openInTab('https://github.com/xxxily/vue-debug-helper/issues', {
         active: true,
         insert: true,
@@ -23,43 +22,12 @@ function menuRegister (Vue) {
     return false
   }
 
-  monkeyMenu.on('查看vueDebugHelper对象', () => {
-    debug.log('vueDebugHelper对象', helper)
-  })
-
-  monkeyMenu.on('当前存活组件统计', () => {
-    debug.log('当前存活组件统计', helper.methods.componentsStatistics())
-  })
-
-  monkeyMenu.on('已销毁组件统计', () => {
-    debug.log('已销毁组件统计', helper.methods.destroyStatisticsSort())
-  })
-
-  monkeyMenu.on('全部组件混合统计', () => {
-    debug.log('全部组件混合统计', helper.methods.componentsSummaryStatisticsSort())
-  })
-
-  monkeyMenu.on('组件存活时间信息', () => {
-    debug.log('组件存活时间信息', helper.methods.getDestroyByDuration())
-  })
-
-  monkeyMenu.on('清空统计信息', () => {
-    helper.methods.clearAll()
-    debug.log('清空统计信息')
-  })
-
-  monkeyMenu.on('数据注入（dd）', () => {
-    const filter = window.prompt('组件过滤器（如果为空，则对所有组件注入）', localStorage.getItem('vueDebugHelper_dd_filter') || '')
-    const count = window.prompt('指定注入数据的重复次数（默认1024）', localStorage.getItem('vueDebugHelper_dd_count') || 1024)
-    filter && localStorage.setItem('vueDebugHelper_dd_filter', filter)
-    count && localStorage.setItem('vueDebugHelper_dd_count', count)
-    debug.log('数据注入（dd）')
-    helper.methods.dd(filter, Number(count))
-  })
-
-  monkeyMenu.on('取消数据注入（undd）', () => {
-    debug.log('取消数据注入（undd）')
-    helper.methods.undd()
+  // 批量注册菜单
+  Object.keys(functionCall).forEach(key => {
+    const text = i18n.t(`debugHelper.${key}`)
+    if (text && functionCall[key] instanceof Function) {
+      monkeyMenu.on(text, functionCall[key])
+    }
   })
 
   // monkeyMenu.on('i18n.t('setting')', () => {
