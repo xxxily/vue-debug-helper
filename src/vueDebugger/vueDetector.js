@@ -6,6 +6,67 @@
  * @date         2022/04/27 11:43
  * @github       https://github.com/xxxily
  */
+import debug from './debug'
+
+function mutationDetector (callback, shadowRoot) {
+  const win = window
+  const MutationObserver = win.MutationObserver || win.WebKitMutationObserver
+  const docRoot = shadowRoot || win.document.documentElement
+  const maxDetectTries = 1500
+  const timeout = 1000 * 10
+  const startTime = Date.now()
+  let detectCount = 0
+  let detectStatus = false
+
+  if (!MutationObserver) {
+    debug.warn('MutationObserver is not supported in this browser')
+    return false
+  }
+
+  let mObserver = null
+  const mObserverCallback = (mutationsList, observer) => {
+    if (detectStatus) {
+      return
+    }
+
+    /* 超时或检测次数过多，取消监听 */
+    if (Date.now() - startTime > timeout || detectCount > maxDetectTries) {
+      debug.warn('mutationDetector timeout or detectCount > maxDetectTries, stop detect')
+      if (mObserver && mObserver.disconnect) {
+        mObserver.disconnect()
+        mObserver = null
+      }
+    }
+
+    for (let i = 0; i < mutationsList.length; i++) {
+      detectCount++
+      const mutation = mutationsList[i]
+      if (mutation.target && mutation.target.__vue__) {
+        let Vue = Object.getPrototypeOf(mutation.target.__vue__).constructor
+        while (Vue.super) {
+          Vue = Vue.super
+        }
+
+        /* 检测成功后销毁观察对象 */
+        if (mObserver && mObserver.disconnect) {
+          mObserver.disconnect()
+          mObserver = null
+        }
+
+        detectStatus = true
+        callback && callback(Vue)
+        break
+      }
+    }
+  }
+
+  mObserver = new MutationObserver(mObserverCallback)
+  mObserver.observe(docRoot, {
+    attributes: true,
+    childList: true,
+    subtree: true
+  })
+}
 
 /**
  * 检测页面是否存在Vue对象，方法参考：https://github.com/vuejs/devtools/blob/main/packages/shell-chrome/src/detector.js
@@ -15,29 +76,28 @@
 function vueDetect (win, callback) {
   let delay = 1000
   let detectRemainingTries = 10
+  let detectSuc = false
+
+  // Method 1: MutationObserver detector
+  mutationDetector((Vue) => {
+    if (!detectSuc) {
+      debug.info('------------- Vue mutation detected -------------')
+      detectSuc = true
+      callback(Vue)
+    }
+  })
 
   function runDetect () {
-    // Method 1: use defineProperty to detect Vue, has BUG, so use Method 2
-    // 使用下面方式会导致 'Vue' in window 为 true，从而引发其他问题
-    // Object.defineProperty(win, 'Vue', {
-    //   enumerable: true,
-    //   configurable: true,
-    //   get () {
-    //     return win.__originalVue__
-    //   },
-    //   set (value) {
-    //     win.__originalVue__ = value
-
-    //     if (value && value.mixin) {
-    //       callback(value)
-    //     }
-    //   }
-    // })
+    if (detectSuc) {
+      return false
+    }
 
     // Method 2: Check  Vue 3
-    const vueDetected = !!(window.__VUE__)
+    const vueDetected = !!(win.__VUE__)
     if (vueDetected) {
-      callback(window.__VUE__)
+      debug.info('------------- Vue 3 detected -------------')
+      detectSuc = true
+      callback(win.__VUE__)
       return
     }
 
@@ -55,6 +115,8 @@ function vueDetect (win, callback) {
       while (Vue.super) {
         Vue = Vue.super
       }
+      debug.info('------------- Vue 2 detected -------------')
+      detectSuc = true
       callback(Vue)
       return
     }

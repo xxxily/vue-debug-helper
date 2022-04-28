@@ -6,7 +6,7 @@
 // @name:ja      Vueデバッグ分析アシスタント
 // @namespace    https://github.com/xxxily/vue-debug-helper
 // @homepage     https://github.com/xxxily/vue-debug-helper
-// @version      0.0.4
+// @version      0.0.5
 // @description  Vue components debug helper
 // @description:en  Vue components debug helper
 // @description:zh  Vue组件探测、统计、分析辅助脚本
@@ -77,6 +77,31 @@ function createEmptyData (count = 1024, str = 'd') {
   return arr.join(str)
 }
 
+/**
+ * 将字符串分隔的过滤器转换为数组形式的过滤器
+ * @param {string|array} filter - 必选 字符串或数组，字符串支持使用 , |符号对多个项进行分隔
+ * @returns {array}
+ */
+function toArrFilters (filter) {
+  filter = filter || [];
+
+  /* 如果是字符串，则支持通过, | 两个符号来指定多个组件名称的过滤器 */
+  if (typeof filter === 'string') {
+    /* 移除前后的, |分隔符，防止出现空字符的过滤规则 */
+    filter.replace(/^(,|\|)/, '').replace(/(,|\|)$/, '');
+
+    if (/\|/.test(filter)) {
+      filter = filter.split('|');
+    } else {
+      filter = filter.split(',');
+    }
+  }
+
+  filter = filter.map(item => item.trim());
+
+  return filter
+}
+
 window.vueDebugHelper = {
   /* 存储全部未被销毁的组件对象 */
   components: {},
@@ -88,11 +113,21 @@ window.vueDebugHelper = {
   destroyList: [],
   /* 基于destroyList的组件情况统计 */
   destroyStatistics: {},
+
+  config: {
+    /* 是否在控制台打印组件生命周期的相关信息 */
+    lifecycle: {
+      show: false,
+      filters: ['created'],
+      componentFilters: []
+    }
+  },
+
   /* 给组件注入空白数据的配置信息 */
   ddConfig: {
     enabled: false,
     filters: [],
-    size: 1024
+    count: 1024
   }
 };
 
@@ -189,8 +224,19 @@ const methods = {
     while (current && deep < 50) {
       deep++;
 
+      /**
+       * 由于脚本注入的运行时间会比应用创建时间晚，所以会导致部分先创建的组件缺少相关信息
+       * 这里尝试对部分信息进行修复，以便更好的查看组件的创建情况
+       */
+      if (!current._componentTag) {
+        const tag = current.$vnode?.tag || current.$options?._componentTag || current._uid;
+        current._componentTag = tag;
+        current._componentName = isNaN(Number(tag)) ? tag.replace(/^vue-component-\d+-/, '') : 'anonymous-component';
+      }
+
       if (moreDetail) {
         result.push({
+          tag: current._componentTag,
           name: current._componentName,
           componentsSummary: helper.componentsSummary[current._uid] || null
         });
@@ -208,31 +254,36 @@ const methods = {
     }
   },
 
+  printLifeCycleInfo (lifecycleFilters, componentFilters) {
+    lifecycleFilters = toArrFilters(lifecycleFilters);
+    componentFilters = toArrFilters(componentFilters);
+
+    helper.config.lifecycle = {
+      show: true,
+      filters: lifecycleFilters,
+      componentFilters: componentFilters
+    };
+  },
+  notPrintLifeCycleInfo () {
+    helper.config.lifecycle = {
+      show: false,
+      filters: ['created'],
+      componentFilters: []
+    };
+  },
+
   /**
    * 给指定组件注入大量空数据，以便观察组件的内存泄露情况
    * @param {Array|string} filter -必选 指定组件的名称，如果为空则表示注入所有组件
-   * @param {number} size -可选 指定注入空数据的大小，单位Kb，默认为1024Kb，即1Mb
+   * @param {number} count -可选 指定注入空数据的大小，单位Kb，默认为1024Kb，即1Mb
    * @returns
    */
-  dd (filter, size = 1024) {
-    filter = filter || [];
-
-    /* 如果是字符串，则支持通过, | 两个符号来指定多个组件名称的过滤器 */
-    if (typeof filter === 'string') {
-      /* 移除前后的, |分隔符，防止出现空字符的过滤规则 */
-      filter.replace(/^(,|\|)/, '').replace(/(,|\|)$/, '');
-
-      if (/\|/.test(filter)) {
-        filter = filter.split('|');
-      } else {
-        filter = filter.split(',');
-      }
-    }
-
+  dd (filter, count = 1024) {
+    filter = toArrFilters(filter);
     helper.ddConfig = {
       enabled: true,
       filters: filter,
-      size
+      count
     };
   },
   /* 禁止给组件注入空数据 */
@@ -240,7 +291,7 @@ const methods = {
     helper.ddConfig = {
       enabled: false,
       filters: [],
-      size: 1024
+      count: 1024
     };
 
     /* 删除之前注入的数据 */
@@ -254,7 +305,7 @@ const methods = {
 helper.methods = methods;
 
 class Debug {
-  constructor (msg) {
+  constructor (msg, printTime = false) {
     const t = this;
     msg = msg || 'debug message:';
     t.log = t.createDebugMethod('log', null, msg);
@@ -276,20 +327,28 @@ class Debug {
       error: '#D33F49'
     };
 
+    const printTime = this.printTime;
+
     return function () {
       if (!window._debugMode_) {
         return false
       }
 
-      const curTime = new Date();
-      const H = curTime.getHours();
-      const M = curTime.getMinutes();
-      const S = curTime.getSeconds();
       const msg = tipsMsg || 'debug message:';
 
       const arg = Array.from(arguments);
       arg.unshift(`color: white; background-color: ${color || bgColorMap[name] || '#95B46A'}`);
-      arg.unshift(`%c [${H}:${M}:${S}] ${msg} `);
+
+      if (printTime) {
+        const curTime = new Date();
+        const H = curTime.getHours();
+        const M = curTime.getMinutes();
+        const S = curTime.getSeconds();
+        arg.unshift(`%c [${H}:${M}:${S}] ${msg} `);
+      } else {
+        arg.unshift(`%c ${msg} `);
+      }
+
       window.console[name].apply(window.console, arg);
     }
   }
@@ -301,7 +360,29 @@ class Debug {
 
 var Debug$1 = new Debug();
 
-var debug = Debug$1.create('vue-debug-helper message:');
+var debug = Debug$1.create('vueDebugHelper:');
+
+/**
+ * 打印生命周期信息
+ * @param {Vue} vm vue组件实例
+ * @param {string} lifeCycle vue生命周期名称
+ * @returns
+ */
+function printLifeCycle (vm, lifeCycle) {
+  const lifeCycleConf = helper.config.lifecycle || { show: false, filters: ['created'], componentFilters: [] };
+
+  if (!vm || !lifeCycle || !lifeCycleConf.show) {
+    return false
+  }
+
+  const { _componentTag, _componentName, _componentChain, _createdHumanTime, _uid } = vm;
+  const info = `[${lifeCycle}] tag: ${_componentTag}, uid: ${_uid}, createdTime: ${_createdHumanTime}, chain: ${_componentChain}`;
+  const matchComponentFilters = lifeCycleConf.componentFilters.length === 0 || lifeCycleConf.componentFilters.includes(_componentName);
+
+  if (lifeCycleConf.filters.includes(lifeCycle) && matchComponentFilters) {
+    debug.log(info);
+  }
+}
 
 function mixinRegister (Vue) {
   if (!Vue || !Vue.mixin) {
@@ -311,12 +392,17 @@ function mixinRegister (Vue) {
 
   Vue.mixin({
     beforeCreate: function () {
-      const tag = this.$options?._componentTag || this.$vnode?.tag || this._uid;
+      // const tag = this.$options?._componentTag || this.$vnode?.tag || this._uid
+      const tag = this.$vnode?.tag || this.$options?._componentTag || this._uid;
       const chain = helper.methods.getComponentChain(this);
       this._componentTag = tag;
       this._componentChain = chain;
-      this._componentName = isNaN(Number(tag)) ? tag.replace(/^vue\-component\-\d+\-/, '') : 'anonymous-component';
+      this._componentName = isNaN(Number(tag)) ? tag.replace(/^vue-component-\d+-/, '') : 'anonymous-component';
       this._createdTime = Date.now();
+
+      /* 增加人类方便查看的时间信息 */
+      const timeObj = new Date(this._createdTime);
+      this._createdHumanTime = `${timeObj.getHours()}:${timeObj.getMinutes()}:${timeObj.getSeconds()}`;
 
       /* 判断是否为函数式组件，函数式组件无状态 (没有响应式数据)，也没有实例，也没生命周期概念 */
       if (this._componentName === 'anonymous-component' && !this.$parent && !this.$vnode) {
@@ -334,6 +420,7 @@ function mixinRegister (Vue) {
         name: this._componentName,
         tag: this._componentTag,
         createdTime: this._createdTime,
+        createdHumanTime: this._createdHumanTime,
         // 0 表示还没被销毁
         destroyTime: 0,
         // 0 表示还没被销毁，duration可持续当当前查看时间
@@ -347,6 +434,8 @@ function mixinRegister (Vue) {
       Array.isArray(helper.componentsSummaryStatistics[this._componentName])
         ? helper.componentsSummaryStatistics[this._componentName].push(componentSummary)
         : (helper.componentsSummaryStatistics[this._componentName] = [componentSummary]);
+
+      printLifeCycle(this, 'beforeCreate');
     },
     created: function () {
       /* 增加空白数据，方便观察内存泄露情况 */
@@ -366,15 +455,36 @@ function mixinRegister (Vue) {
         }
 
         if (needDd) {
-          const size = helper.ddConfig.size * 1024;
-          const componentInfo = `tag: ${this._componentTag}, uid: ${this._uid}, createdTime: ${this._createdTime}`;
+          const count = helper.ddConfig.count * 1024;
+          const componentInfo = `tag: ${this._componentTag}, uid: ${this._uid}, createdTime: ${this._createdHumanTime}`;
+
           /* 此处必须使用JSON.stringify对产生的字符串进行消费，否则没法将内存占用上去 */
-          this.$data.__dd__ = JSON.stringify(componentInfo + ' ' + helper.methods.createEmptyData(size, this._uid));
-          console.log(`[dd success] ${componentInfo} componentChain: ${this._componentChain}`);
+          this.$data.__dd__ = JSON.stringify(componentInfo + ' ' + helper.methods.createEmptyData(count, this._uid));
+
+          console.log(`[dd success] ${componentInfo} chain: ${this._componentChain}`);
         }
       }
+
+      printLifeCycle(this, 'created');
+    },
+    beforeMount: function () {
+      printLifeCycle(this, 'beforeMount');
+    },
+    mounted: function () {
+      printLifeCycle(this, 'mounted');
+    },
+    beforeUpdate: function () {
+      printLifeCycle(this, 'beforeUpdate');
+    },
+    updated: function () {
+      printLifeCycle(this, 'updated');
+    },
+    beforeDestroy: function () {
+      printLifeCycle(this, 'beforeDestroy');
     },
     destroyed: function () {
+      printLifeCycle(this, 'destroyed');
+
       if (this._componentTag) {
         const uid = this._uid;
         const name = this._componentName;
@@ -403,6 +513,7 @@ function mixinRegister (Vue) {
         delete this._componentChain;
         delete this._componentName;
         delete this._createdTime;
+        delete this._createdHumanTime;
         delete this.$data.__dd__;
         delete helper.components[uid];
       } else {
@@ -526,6 +637,12 @@ var zhCN = {
     componentsSummaryStatisticsSort: '全部组件混合统计',
     getDestroyByDuration: '组件存活时间信息',
     clearAll: '清空统计信息',
+    printLifeCycleInfo: '打印组件生命周期信息',
+    notPrintLifeCycleInfo: '取消组件生命周期信息打印',
+    printLifeCycleInfoPrompt: {
+      lifecycleFilters: '请输入要打印的生命周期名称，多个可用,或|分隔，不输入则默认打印created',
+      componentFilters: '请输入要打印的组件名称，多个可用,或|分隔，不输入则默认打印所有组件'
+    },
     dd: '数据注入（dd）',
     undd: '取消数据注入（undd）',
     ddPrompt: {
@@ -633,11 +750,27 @@ const functionCall = {
     helper.methods.clearAll();
     debug.log(i18n.t('debugHelper.clearAll'));
   },
+
+  printLifeCycleInfo () {
+    const lifecycleFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.lifecycleFilters'), localStorage.getItem('vdh_lf_lifecycleFilters') || 'created');
+    const componentFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.componentFilters'), localStorage.getItem('vdh_lf_componentFilters') || '');
+    lifecycleFilters && localStorage.setItem('vdh_lf_lifecycleFilters', lifecycleFilters);
+    componentFilters && localStorage.setItem('vdh_lf_componentFilters', componentFilters);
+
+    debug.log(i18n.t('debugHelper.printLifeCycleInfo'));
+    helper.methods.printLifeCycleInfo(lifecycleFilters, componentFilters);
+  },
+
+  notPrintLifeCycleInfo () {
+    debug.log(i18n.t('debugHelper.notPrintLifeCycleInfo'));
+    helper.methods.notPrintLifeCycleInfo();
+  },
+
   dd () {
-    const filter = window.prompt(i18n.t('debugHelper.ddPrompt.filter'), localStorage.getItem('vueDebugHelper_dd_filter') || '');
-    const count = window.prompt(i18n.t('debugHelper.ddPrompt.count'), localStorage.getItem('vueDebugHelper_dd_count') || 1024);
-    filter && localStorage.setItem('vueDebugHelper_dd_filter', filter);
-    count && localStorage.setItem('vueDebugHelper_dd_count', count);
+    const filter = window.prompt(i18n.t('debugHelper.ddPrompt.filter'), localStorage.getItem('vdh_dd_filter') || '');
+    const count = window.prompt(i18n.t('debugHelper.ddPrompt.count'), localStorage.getItem('vdh_dd_count') || 1024);
+    filter && localStorage.setItem('vdh_dd_filter', filter);
+    count && localStorage.setItem('vdh_dd_count', count);
     debug.log(i18n.t('debugHelper.dd'));
     helper.methods.dd(filter, Number(count));
   },
@@ -1303,6 +1436,66 @@ function hotKeyRegister () {
  * @github       https://github.com/xxxily
  */
 
+function mutationDetector (callback, shadowRoot) {
+  const win = window;
+  const MutationObserver = win.MutationObserver || win.WebKitMutationObserver;
+  const docRoot = shadowRoot || win.document.documentElement;
+  const maxDetectTries = 1500;
+  const timeout = 1000 * 10;
+  const startTime = Date.now();
+  let detectCount = 0;
+  let detectStatus = false;
+
+  if (!MutationObserver) {
+    debug.warn('MutationObserver is not supported in this browser');
+    return false
+  }
+
+  let mObserver = null;
+  const mObserverCallback = (mutationsList, observer) => {
+    if (detectStatus) {
+      return
+    }
+
+    /* 超时或检测次数过多，取消监听 */
+    if (Date.now() - startTime > timeout || detectCount > maxDetectTries) {
+      debug.warn('mutationDetector timeout or detectCount > maxDetectTries, stop detect');
+      if (mObserver && mObserver.disconnect) {
+        mObserver.disconnect();
+        mObserver = null;
+      }
+    }
+
+    for (let i = 0; i < mutationsList.length; i++) {
+      detectCount++;
+      const mutation = mutationsList[i];
+      if (mutation.target && mutation.target.__vue__) {
+        let Vue = Object.getPrototypeOf(mutation.target.__vue__).constructor;
+        while (Vue.super) {
+          Vue = Vue.super;
+        }
+
+        /* 检测成功后销毁观察对象 */
+        if (mObserver && mObserver.disconnect) {
+          mObserver.disconnect();
+          mObserver = null;
+        }
+
+        detectStatus = true;
+        callback && callback(Vue);
+        break
+      }
+    }
+  };
+
+  mObserver = new MutationObserver(mObserverCallback);
+  mObserver.observe(docRoot, {
+    attributes: true,
+    childList: true,
+    subtree: true
+  });
+}
+
 /**
  * 检测页面是否存在Vue对象，方法参考：https://github.com/vuejs/devtools/blob/main/packages/shell-chrome/src/detector.js
  * @param {window} win windwod对象
@@ -1311,29 +1504,28 @@ function hotKeyRegister () {
 function vueDetect (win, callback) {
   let delay = 1000;
   let detectRemainingTries = 10;
+  let detectSuc = false;
+
+  // Method 1: MutationObserver detector
+  mutationDetector((Vue) => {
+    if (!detectSuc) {
+      debug.info('------------- Vue mutation detected -------------');
+      detectSuc = true;
+      callback(Vue);
+    }
+  });
 
   function runDetect () {
-    // Method 1: use defineProperty to detect Vue, has BUG, so use Method 2
-    // 使用下面方式会导致 'Vue' in window 为 true，从而引发其他问题
-    // Object.defineProperty(win, 'Vue', {
-    //   enumerable: true,
-    //   configurable: true,
-    //   get () {
-    //     return win.__originalVue__
-    //   },
-    //   set (value) {
-    //     win.__originalVue__ = value
-
-    //     if (value && value.mixin) {
-    //       callback(value)
-    //     }
-    //   }
-    // })
+    if (detectSuc) {
+      return false
+    }
 
     // Method 2: Check  Vue 3
-    const vueDetected = !!(window.__VUE__);
+    const vueDetected = !!(win.__VUE__);
     if (vueDetected) {
-      callback(window.__VUE__);
+      debug.info('------------- Vue 3 detected -------------');
+      detectSuc = true;
+      callback(win.__VUE__);
       return
     }
 
@@ -1351,6 +1543,8 @@ function vueDetect (win, callback) {
       while (Vue.super) {
         Vue = Vue.super;
       }
+      debug.info('------------- Vue 2 detected -------------');
+      detectSuc = true;
       callback(Vue);
       return
     }
@@ -1418,7 +1612,7 @@ window._debugMode_ = true
     return false
   }
 
-  debug.log('init');
+  // debug.log('init')
 
   const win = await getPageWindow();
   vueDetect(win, function (Vue) {
@@ -1427,7 +1621,17 @@ window._debugMode_ = true
     hotKeyRegister();
 
     // 挂载到window上，方便通过控制台调用调试
+    helper.Vue = Vue;
     win.vueDebugHelper = helper;
+
+    // 自动开启Vue的调试模式
+    if (Vue.config) {
+      Vue.config.debug = true;
+      Vue.config.devtools = true;
+      Vue.config.performance = true;
+    } else {
+      debug.log('Vue.config is not defined');
+    }
 
     debug.log('vue debug helper register success');
     registerStatus = 'success';

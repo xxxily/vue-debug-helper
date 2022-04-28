@@ -11,6 +11,12 @@ export default {
     componentsSummaryStatisticsSort: '全部组件混合统计',
     getDestroyByDuration: '组件存活时间信息',
     clearAll: '清空统计信息',
+    printLifeCycleInfo: '打印组件生命周期信息',
+    notPrintLifeCycleInfo: '取消组件生命周期信息打印',
+    printLifeCycleInfoPrompt: {
+      lifecycleFilters: '请输入要打印的生命周期名称，多个可用,或|分隔，不输入则默认打印created',
+      componentFilters: '请输入要打印的组件名称，多个可用,或|分隔，不输入则默认打印所有组件'
+    },
     dd: '数据注入（dd）',
     undd: '取消数据注入（undd）',
     ddPrompt: {

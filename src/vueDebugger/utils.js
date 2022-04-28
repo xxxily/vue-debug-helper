@@ -37,4 +37,29 @@ function createEmptyData (count = 1024, str = 'd') {
   return arr.join(str)
 }
 
-export { objSort, createEmptyData }
+/**
+ * 将字符串分隔的过滤器转换为数组形式的过滤器
+ * @param {string|array} filter - 必选 字符串或数组，字符串支持使用 , |符号对多个项进行分隔
+ * @returns {array}
+ */
+function toArrFilters (filter) {
+  filter = filter || []
+
+  /* 如果是字符串，则支持通过, | 两个符号来指定多个组件名称的过滤器 */
+  if (typeof filter === 'string') {
+    /* 移除前后的, |分隔符，防止出现空字符的过滤规则 */
+    filter.replace(/^(,|\|)/, '').replace(/(,|\|)$/, '')
+
+    if (/\|/.test(filter)) {
+      filter = filter.split('|')
+    } else {
+      filter = filter.split(',')
+    }
+  }
+
+  filter = filter.map(item => item.trim())
+
+  return filter
+}
+
+export { objSort, createEmptyData, toArrFilters }

@@ -1,6 +1,28 @@
 import helper from './helper'
 import debug from './debug'
 
+/**
+ * 打印生命周期信息
+ * @param {Vue} vm vue组件实例
+ * @param {string} lifeCycle vue生命周期名称
+ * @returns
+ */
+function printLifeCycle (vm, lifeCycle) {
+  const lifeCycleConf = helper.config.lifecycle || { show: false, filters: ['created'], componentFilters: [] }
+
+  if (!vm || !lifeCycle || !lifeCycleConf.show) {
+    return false
+  }
+
+  const { _componentTag, _componentName, _componentChain, _createdHumanTime, _uid } = vm
+  const info = `[${lifeCycle}] tag: ${_componentTag}, uid: ${_uid}, createdTime: ${_createdHumanTime}, chain: ${_componentChain}`
+  const matchComponentFilters = lifeCycleConf.componentFilters.length === 0 || lifeCycleConf.componentFilters.includes(_componentName)
+
+  if (lifeCycleConf.filters.includes(lifeCycle) && matchComponentFilters) {
+    debug.log(info)
+  }
+}
+
 function mixinRegister (Vue) {
   if (!Vue || !Vue.mixin) {
     debug.error('未检查到VUE对象，请检查是否引入了VUE，且将VUE对象挂载到全局变量window.Vue上')
@@ -9,12 +31,17 @@ function mixinRegister (Vue) {
 
   Vue.mixin({
     beforeCreate: function () {
-      const tag = this.$options?._componentTag || this.$vnode?.tag || this._uid
+      // const tag = this.$options?._componentTag || this.$vnode?.tag || this._uid
+      const tag = this.$vnode?.tag || this.$options?._componentTag || this._uid
       const chain = helper.methods.getComponentChain(this)
       this._componentTag = tag
       this._componentChain = chain
-      this._componentName = isNaN(Number(tag)) ? tag.replace(/^vue\-component\-\d+\-/, '') : 'anonymous-component'
+      this._componentName = isNaN(Number(tag)) ? tag.replace(/^vue-component-\d+-/, '') : 'anonymous-component'
       this._createdTime = Date.now()
+
+      /* 增加人类方便查看的时间信息 */
+      const timeObj = new Date(this._createdTime)
+      this._createdHumanTime = `${timeObj.getHours()}:${timeObj.getMinutes()}:${timeObj.getSeconds()}`
 
       /* 判断是否为函数式组件，函数式组件无状态 (没有响应式数据)，也没有实例，也没生命周期概念 */
       if (this._componentName === 'anonymous-component' && !this.$parent && !this.$vnode) {
@@ -32,6 +59,7 @@ function mixinRegister (Vue) {
         name: this._componentName,
         tag: this._componentTag,
         createdTime: this._createdTime,
+        createdHumanTime: this._createdHumanTime,
         // 0 表示还没被销毁
         destroyTime: 0,
         // 0 表示还没被销毁，duration可持续当当前查看时间
@@ -45,6 +73,8 @@ function mixinRegister (Vue) {
       Array.isArray(helper.componentsSummaryStatistics[this._componentName])
         ? helper.componentsSummaryStatistics[this._componentName].push(componentSummary)
         : (helper.componentsSummaryStatistics[this._componentName] = [componentSummary])
+
+      printLifeCycle(this, 'beforeCreate')
     },
     created: function () {
       /* 增加空白数据，方便观察内存泄露情况 */
@@ -64,15 +94,36 @@ function mixinRegister (Vue) {
         }
 
         if (needDd) {
-          const size = helper.ddConfig.size * 1024
-          const componentInfo = `tag: ${this._componentTag}, uid: ${this._uid}, createdTime: ${this._createdTime}`
+          const count = helper.ddConfig.count * 1024
+          const componentInfo = `tag: ${this._componentTag}, uid: ${this._uid}, createdTime: ${this._createdHumanTime}`
+
           /* 此处必须使用JSON.stringify对产生的字符串进行消费，否则没法将内存占用上去 */
-          this.$data.__dd__ = JSON.stringify(componentInfo + ' ' + helper.methods.createEmptyData(size, this._uid))
-          console.log(`[dd success] ${componentInfo} componentChain: ${this._componentChain}`)
+          this.$data.__dd__ = JSON.stringify(componentInfo + ' ' + helper.methods.createEmptyData(count, this._uid))
+
+          console.log(`[dd success] ${componentInfo} chain: ${this._componentChain}`)
         }
       }
+
+      printLifeCycle(this, 'created')
+    },
+    beforeMount: function () {
+      printLifeCycle(this, 'beforeMount')
+    },
+    mounted: function () {
+      printLifeCycle(this, 'mounted')
+    },
+    beforeUpdate: function () {
+      printLifeCycle(this, 'beforeUpdate')
+    },
+    updated: function () {
+      printLifeCycle(this, 'updated')
+    },
+    beforeDestroy: function () {
+      printLifeCycle(this, 'beforeDestroy')
     },
     destroyed: function () {
+      printLifeCycle(this, 'destroyed')
+
       if (this._componentTag) {
         const uid = this._uid
         const name = this._componentName
@@ -101,6 +152,7 @@ function mixinRegister (Vue) {
         delete this._componentChain
         delete this._componentName
         delete this._createdTime
+        delete this._createdHumanTime
         delete this.$data.__dd__
         delete helper.components[uid]
       } else {

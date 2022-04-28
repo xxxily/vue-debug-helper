@@ -1,6 +1,7 @@
 import {
   objSort,
-  createEmptyData
+  createEmptyData,
+  toArrFilters
 } from './utils'
 
 window.vueDebugHelper = {
@@ -14,11 +15,21 @@ window.vueDebugHelper = {
   destroyList: [],
   /* 基于destroyList的组件情况统计 */
   destroyStatistics: {},
+
+  config: {
+    /* 是否在控制台打印组件生命周期的相关信息 */
+    lifecycle: {
+      show: false,
+      filters: ['created'],
+      componentFilters: []
+    }
+  },
+
   /* 给组件注入空白数据的配置信息 */
   ddConfig: {
     enabled: false,
     filters: [],
-    size: 1024
+    count: 1024
   }
 }
 
@@ -115,8 +126,19 @@ const methods = {
     while (current && deep < 50) {
       deep++
 
+      /**
+       * 由于脚本注入的运行时间会比应用创建时间晚，所以会导致部分先创建的组件缺少相关信息
+       * 这里尝试对部分信息进行修复，以便更好的查看组件的创建情况
+       */
+      if (!current._componentTag) {
+        const tag = current.$vnode?.tag || current.$options?._componentTag || current._uid
+        current._componentTag = tag
+        current._componentName = isNaN(Number(tag)) ? tag.replace(/^vue-component-\d+-/, '') : 'anonymous-component'
+      }
+
       if (moreDetail) {
         result.push({
+          tag: current._componentTag,
           name: current._componentName,
           componentsSummary: helper.componentsSummary[current._uid] || null
         })
@@ -134,31 +156,36 @@ const methods = {
     }
   },
 
+  printLifeCycleInfo (lifecycleFilters, componentFilters) {
+    lifecycleFilters = toArrFilters(lifecycleFilters)
+    componentFilters = toArrFilters(componentFilters)
+
+    helper.config.lifecycle = {
+      show: true,
+      filters: lifecycleFilters,
+      componentFilters: componentFilters
+    }
+  },
+  notPrintLifeCycleInfo () {
+    helper.config.lifecycle = {
+      show: false,
+      filters: ['created'],
+      componentFilters: []
+    }
+  },
+
   /**
    * 给指定组件注入大量空数据，以便观察组件的内存泄露情况
    * @param {Array|string} filter -必选 指定组件的名称，如果为空则表示注入所有组件
-   * @param {number} size -可选 指定注入空数据的大小，单位Kb，默认为1024Kb，即1Mb
+   * @param {number} count -可选 指定注入空数据的大小，单位Kb，默认为1024Kb，即1Mb
    * @returns
    */
-  dd (filter, size = 1024) {
-    filter = filter || []
-
-    /* 如果是字符串，则支持通过, | 两个符号来指定多个组件名称的过滤器 */
-    if (typeof filter === 'string') {
-      /* 移除前后的, |分隔符，防止出现空字符的过滤规则 */
-      filter.replace(/^(,|\|)/, '').replace(/(,|\|)$/, '')
-
-      if (/\|/.test(filter)) {
-        filter = filter.split('|')
-      } else {
-        filter = filter.split(',')
-      }
-    }
-
+  dd (filter, count = 1024) {
+    filter = toArrFilters(filter)
     helper.ddConfig = {
       enabled: true,
       filters: filter,
-      size
+      count
     }
   },
   /* 禁止给组件注入空数据 */
@@ -166,7 +193,7 @@ const methods = {
     helper.ddConfig = {
       enabled: false,
       filters: [],
-      size: 1024
+      count: 1024
     }
 
     /* 删除之前注入的数据 */

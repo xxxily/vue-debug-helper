@@ -23,7 +23,7 @@ window._debugMode_ = true
     return false
   }
 
-  debug.log('init')
+  // debug.log('init')
 
   const win = await getPageWindow()
   vueDetector(win, function (Vue) {
@@ -32,7 +32,17 @@ window._debugMode_ = true
     hotKeyRegister(Vue)
 
     // 挂载到window上，方便通过控制台调用调试
+    helper.Vue = Vue
     win.vueDebugHelper = helper
+
+    // 自动开启Vue的调试模式
+    if (Vue.config) {
+      Vue.config.debug = true
+      Vue.config.devtools = true
+      Vue.config.performance = true
+    } else {
+      debug.log('Vue.config is not defined')
+    }
 
     debug.log('vue debug helper register success')
     registerStatus = 'success'

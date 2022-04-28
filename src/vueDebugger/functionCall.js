@@ -31,11 +31,27 @@ const functionCall = {
     helper.methods.clearAll()
     debug.log(i18n.t('debugHelper.clearAll'))
   },
+
+  printLifeCycleInfo () {
+    const lifecycleFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.lifecycleFilters'), localStorage.getItem('vdh_lf_lifecycleFilters') || 'created')
+    const componentFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.componentFilters'), localStorage.getItem('vdh_lf_componentFilters') || '')
+    lifecycleFilters && localStorage.setItem('vdh_lf_lifecycleFilters', lifecycleFilters)
+    componentFilters && localStorage.setItem('vdh_lf_componentFilters', componentFilters)
+
+    debug.log(i18n.t('debugHelper.printLifeCycleInfo'))
+    helper.methods.printLifeCycleInfo(lifecycleFilters, componentFilters)
+  },
+
+  notPrintLifeCycleInfo () {
+    debug.log(i18n.t('debugHelper.notPrintLifeCycleInfo'))
+    helper.methods.notPrintLifeCycleInfo()
+  },
+
   dd () {
-    const filter = window.prompt(i18n.t('debugHelper.ddPrompt.filter'), localStorage.getItem('vueDebugHelper_dd_filter') || '')
-    const count = window.prompt(i18n.t('debugHelper.ddPrompt.count'), localStorage.getItem('vueDebugHelper_dd_count') || 1024)
-    filter && localStorage.setItem('vueDebugHelper_dd_filter', filter)
-    count && localStorage.setItem('vueDebugHelper_dd_count', count)
+    const filter = window.prompt(i18n.t('debugHelper.ddPrompt.filter'), localStorage.getItem('vdh_dd_filter') || '')
+    const count = window.prompt(i18n.t('debugHelper.ddPrompt.count'), localStorage.getItem('vdh_dd_count') || 1024)
+    filter && localStorage.setItem('vdh_dd_filter', filter)
+    count && localStorage.setItem('vdh_dd_count', count)
     debug.log(i18n.t('debugHelper.dd'))
     helper.methods.dd(filter, Number(count))
   },
