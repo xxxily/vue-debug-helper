@@ -75,17 +75,26 @@ function mixinRegister (Vue) {
         : (helper.componentsSummaryStatistics[this._componentName] = [componentSummary])
 
       printLifeCycle(this, 'beforeCreate')
+
+      /* 使用$destroy阻断组件的创建 */
+      if (helper.config.blockFilters && helper.config.blockFilters.length) {
+        if (helper.config.blockFilters.includes(this._componentName)) {
+          debug.log(`[block component]: name: ${this._componentName}, tag: ${this._componentTag}, uid: ${this._uid}`)
+          this.$destroy()
+          return false
+        }
+      }
     },
     created: function () {
       /* 增加空白数据，方便观察内存泄露情况 */
-      if (helper.ddConfig.enabled) {
+      if (helper.config.dd.enabled) {
         let needDd = false
 
-        if (helper.ddConfig.filters.length === 0) {
+        if (helper.config.dd.filters.length === 0) {
           needDd = true
         } else {
-          for (let index = 0; index < helper.ddConfig.filters.length; index++) {
-            const filter = helper.ddConfig.filters[index]
+          for (let index = 0; index < helper.config.dd.filters.length; index++) {
+            const filter = helper.config.dd.filters[index]
             if (filter === this._componentName || String(this._componentName).endsWith(filter)) {
               needDd = true
               break
@@ -94,7 +103,7 @@ function mixinRegister (Vue) {
         }
 
         if (needDd) {
-          const count = helper.ddConfig.count * 1024
+          const count = helper.config.dd.count * 1024
           const componentInfo = `tag: ${this._componentTag}, uid: ${this._uid}, createdTime: ${this._createdHumanTime}`
 
           /* 此处必须使用JSON.stringify对产生的字符串进行消费，否则没法将内存占用上去 */
@@ -114,6 +123,12 @@ function mixinRegister (Vue) {
     },
     beforeUpdate: function () {
       printLifeCycle(this, 'beforeUpdate')
+    },
+    activated: function () {
+      printLifeCycle(this, 'activated')
+    },
+    deactivated: function () {
+      printLifeCycle(this, 'deactivated')
     },
     updated: function () {
       printLifeCycle(this, 'updated')

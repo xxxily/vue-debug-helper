@@ -1,3 +1,4 @@
+import localStorageProxy from 'local-storage-proxy'
 import {
   objSort,
   createEmptyData,
@@ -22,18 +23,32 @@ window.vueDebugHelper = {
       show: false,
       filters: ['created'],
       componentFilters: []
-    }
-  },
+    },
 
-  /* 给组件注入空白数据的配置信息 */
-  ddConfig: {
-    enabled: false,
-    filters: [],
-    count: 1024
+    /* 查找组件的过滤器配置 */
+    findComponentsFilters: [],
+
+    /* 阻止组件创建的过滤器 */
+    blockFilters: [],
+
+    /* 给组件注入空白数据的配置信息 */
+    dd: {
+      enabled: false,
+      filters: [],
+      count: 1024
+    }
   }
 }
 
 const helper = window.vueDebugHelper
+
+/* 配置信息跟localStorage联动 */
+const state = localStorageProxy('vueDebugHelperConfig', {
+  defaults: helper.config,
+  lspReset: false,
+  storageEventListener: false
+})
+helper.config = state
 
 const methods = {
   objSort,
@@ -175,6 +190,96 @@ const methods = {
   },
 
   /**
+   * 查找组件
+   * @param {string|array} filters 组件名称或组件uid的过滤器，可以是字符串或者数组，如果是字符串多个过滤选可用,或|分隔
+   * 如果过滤项是数字，则跟组件的id进行精确匹配，如果是字符串，则跟组件的tag信息进行模糊匹配
+   * @returns {object} {components: [], componentNames: []}
+   */
+  findComponents (filters) {
+    filters = toArrFilters(filters)
+
+    /* 对filters进行预处理，如果为纯数字则表示通过id查找组件 */
+    filters = filters.map(filter => {
+      if (/^\d+$/.test(filter)) {
+        return Number(filter)
+      } else {
+        return filter
+      }
+    })
+
+    helper.config.findComponentsFilters = filters
+
+    const result = {
+      components: [],
+      destroyedComponents: []
+    }
+
+    const components = helper.components
+    const keys = Object.keys(components)
+
+    for (let i = 0; i < keys.length; i++) {
+      const component = components[keys[i]]
+
+      for (let j = 0; j < filters.length; j++) {
+        const filter = filters[j]
+
+        if (typeof filter === 'number' && component._uid === filter) {
+          result.components.push(component)
+          break
+        } else if (typeof filter === 'string') {
+          const { _componentTag, _componentName } = component
+
+          if (String(_componentTag).includes(filter) || String(_componentName).includes(filter)) {
+            result.components.push(component)
+            break
+          }
+        }
+      }
+    }
+
+    helper.destroyList.forEach(item => {
+      for (let j = 0; j < filters.length; j++) {
+        const filter = filters[j]
+
+        if (typeof filter === 'number' && item.uid === filter) {
+          result.destroyedComponents.push(item)
+          break
+        } else if (typeof filter === 'string') {
+          if (String(item.tag).includes(filter) || String(item.name).includes(filter)) {
+            result.destroyedComponents.push(item)
+            break
+          }
+        }
+      }
+    })
+
+    return result
+  },
+
+  findNotContainElementComponents () {
+    const result = []
+    const keys = Object.keys(helper.components)
+    keys.forEach(key => {
+      const component = helper.components[key]
+      const elStr = Object.prototype.toString.call(component.$el)
+      if (!/(HTML|Comment)/.test(elStr)) {
+        result.push(component)
+      }
+    })
+
+    return result
+  },
+
+  /**
+   * 阻止组件的创建
+   * @param {string|array} filters 组件名称过滤器，可以是字符串或者数组，如果是字符串多个过滤选可用,或|分隔
+   */
+  blockComponents (filters) {
+    filters = toArrFilters(filters)
+    helper.config.blockFilters = filters
+  },
+
+  /**
    * 给指定组件注入大量空数据，以便观察组件的内存泄露情况
    * @param {Array|string} filter -必选 指定组件的名称，如果为空则表示注入所有组件
    * @param {number} count -可选 指定注入空数据的大小，单位Kb，默认为1024Kb，即1Mb
@@ -182,7 +287,7 @@ const methods = {
    */
   dd (filter, count = 1024) {
     filter = toArrFilters(filter)
-    helper.ddConfig = {
+    helper.config.dd = {
       enabled: true,
       filters: filter,
       count
@@ -190,7 +295,7 @@ const methods = {
   },
   /* 禁止给组件注入空数据 */
   undd () {
-    helper.ddConfig = {
+    helper.config.dd = {
       enabled: false,
       filters: [],
       count: 1024

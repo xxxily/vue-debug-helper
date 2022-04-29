@@ -6,7 +6,7 @@
 // @name:ja      Vueデバッグ分析アシスタント
 // @namespace    https://github.com/xxxily/vue-debug-helper
 // @homepage     https://github.com/xxxily/vue-debug-helper
-// @version      0.0.5
+// @version      0.0.6
 // @description  Vue components debug helper
 // @description:en  Vue components debug helper
 // @description:zh  Vue组件探测、统计、分析辅助脚本
@@ -37,6 +37,125 @@
 // @license      GPL
 // ==/UserScript==
 (function (w) { if (w) { w._vueDebugHelper_ = 'https://github.com/xxxily/vue-debug-helper'; } })();
+
+class AssertionError extends Error {}
+AssertionError.prototype.name = 'AssertionError';
+
+/**
+ * Minimal assert function
+ * @param  {any} t Value to check if falsy
+ * @param  {string=} m Optional assertion error message
+ * @throws {AssertionError}
+ */
+function assert (t, m) {
+  if (!t) {
+    var err = new AssertionError(m);
+    if (Error.captureStackTrace) Error.captureStackTrace(err, assert);
+    throw err
+  }
+}
+
+/* eslint-env browser */
+
+let ls;
+if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+  // A simple localStorage interface so that lsp works in SSR contexts. Not for persistant storage in node.
+  const _nodeStorage = {};
+  ls = {
+    getItem (name) {
+      return _nodeStorage[name] || null
+    },
+    setItem (name, value) {
+      if (arguments.length < 2) throw new Error('Failed to execute \'setItem\' on \'Storage\': 2 arguments required, but only 1 present.')
+      _nodeStorage[name] = (value).toString();
+    },
+    removeItem (name) {
+      delete _nodeStorage[name];
+    }
+  };
+} else {
+  ls = window.localStorage;
+}
+
+var localStorageProxy = (name, opts = {}) => {
+  assert(name, 'namepace required');
+  const {
+    defaults = {},
+    lspReset = false,
+    storageEventListener = true
+  } = opts;
+
+  const state = new EventTarget();
+  try {
+    const restoredState = JSON.parse(ls.getItem(name)) || {};
+    if (restoredState.lspReset !== lspReset) {
+      ls.removeItem(name);
+      for (const [k, v] of Object.entries({
+        ...defaults
+      })) {
+        state[k] = v;
+      }
+    } else {
+      for (const [k, v] of Object.entries({
+        ...defaults,
+        ...restoredState
+      })) {
+        state[k] = v;
+      }
+    }
+  } catch (e) {
+    console.error(e);
+    ls.removeItem(name);
+  }
+
+  state.lspReset = lspReset;
+
+  if (storageEventListener && typeof window !== 'undefined' && typeof window.addEventListener !== 'undefined') {
+    state.addEventListener('storage', (ev) => {
+      // Replace state with whats stored on localStorage... it is newer.
+      for (const k of Object.keys(state)) {
+        delete state[k];
+      }
+      const restoredState = JSON.parse(ls.getItem(name)) || {};
+      for (const [k, v] of Object.entries({
+        ...defaults,
+        ...restoredState
+      })) {
+        state[k] = v;
+      }
+      opts.lspReset = restoredState.lspReset;
+      state.dispatchEvent(new Event('update'));
+    });
+  }
+
+  function boundHandler (rootRef) {
+    return {
+      get (obj, prop) {
+        if (typeof obj[prop] === 'object' && obj[prop] !== null) {
+          return new Proxy(obj[prop], boundHandler(rootRef))
+        } else if (typeof obj[prop] === 'function' && obj === rootRef && prop !== 'constructor') {
+          // this returns bound EventTarget functions
+          return obj[prop].bind(obj)
+        } else {
+          return obj[prop]
+        }
+      },
+      set (obj, prop, value) {
+        obj[prop] = value;
+        try {
+          ls.setItem(name, JSON.stringify(rootRef));
+          rootRef.dispatchEvent(new Event('update'));
+          return true
+        } catch (e) {
+          console.error(e);
+          return false
+        }
+      }
+    }
+  }
+
+  return new Proxy(state, boundHandler(state))
+};
 
 /**
  * 对特定数据结构的对象进行排序
@@ -120,18 +239,32 @@ window.vueDebugHelper = {
       show: false,
       filters: ['created'],
       componentFilters: []
-    }
-  },
+    },
 
-  /* 给组件注入空白数据的配置信息 */
-  ddConfig: {
-    enabled: false,
-    filters: [],
-    count: 1024
+    /* 查找组件的过滤器配置 */
+    findComponentsFilters: [],
+
+    /* 阻止组件创建的过滤器 */
+    blockFilters: [],
+
+    /* 给组件注入空白数据的配置信息 */
+    dd: {
+      enabled: false,
+      filters: [],
+      count: 1024
+    }
   }
 };
 
 const helper = window.vueDebugHelper;
+
+/* 配置信息跟localStorage联动 */
+const state = localStorageProxy('vueDebugHelperConfig', {
+  defaults: helper.config,
+  lspReset: false,
+  storageEventListener: false
+});
+helper.config = state;
 
 const methods = {
   objSort,
@@ -273,6 +406,96 @@ const methods = {
   },
 
   /**
+   * 查找组件
+   * @param {string|array} filters 组件名称或组件uid的过滤器，可以是字符串或者数组，如果是字符串多个过滤选可用,或|分隔
+   * 如果过滤项是数字，则跟组件的id进行精确匹配，如果是字符串，则跟组件的tag信息进行模糊匹配
+   * @returns {object} {components: [], componentNames: []}
+   */
+  findComponents (filters) {
+    filters = toArrFilters(filters);
+
+    /* 对filters进行预处理，如果为纯数字则表示通过id查找组件 */
+    filters = filters.map(filter => {
+      if (/^\d+$/.test(filter)) {
+        return Number(filter)
+      } else {
+        return filter
+      }
+    });
+
+    helper.config.findComponentsFilters = filters;
+
+    const result = {
+      components: [],
+      destroyedComponents: []
+    };
+
+    const components = helper.components;
+    const keys = Object.keys(components);
+
+    for (let i = 0; i < keys.length; i++) {
+      const component = components[keys[i]];
+
+      for (let j = 0; j < filters.length; j++) {
+        const filter = filters[j];
+
+        if (typeof filter === 'number' && component._uid === filter) {
+          result.components.push(component);
+          break
+        } else if (typeof filter === 'string') {
+          const { _componentTag, _componentName } = component;
+
+          if (String(_componentTag).includes(filter) || String(_componentName).includes(filter)) {
+            result.components.push(component);
+            break
+          }
+        }
+      }
+    }
+
+    helper.destroyList.forEach(item => {
+      for (let j = 0; j < filters.length; j++) {
+        const filter = filters[j];
+
+        if (typeof filter === 'number' && item.uid === filter) {
+          result.destroyedComponents.push(item);
+          break
+        } else if (typeof filter === 'string') {
+          if (String(item.tag).includes(filter) || String(item.name).includes(filter)) {
+            result.destroyedComponents.push(item);
+            break
+          }
+        }
+      }
+    });
+
+    return result
+  },
+
+  findNotContainElementComponents () {
+    const result = [];
+    const keys = Object.keys(helper.components);
+    keys.forEach(key => {
+      const component = helper.components[key];
+      const elStr = Object.prototype.toString.call(component.$el);
+      if (!/(HTML|Comment)/.test(elStr)) {
+        result.push(component);
+      }
+    });
+
+    return result
+  },
+
+  /**
+   * 阻止组件的创建
+   * @param {string|array} filters 组件名称过滤器，可以是字符串或者数组，如果是字符串多个过滤选可用,或|分隔
+   */
+  blockComponents (filters) {
+    filters = toArrFilters(filters);
+    helper.config.blockFilters = filters;
+  },
+
+  /**
    * 给指定组件注入大量空数据，以便观察组件的内存泄露情况
    * @param {Array|string} filter -必选 指定组件的名称，如果为空则表示注入所有组件
    * @param {number} count -可选 指定注入空数据的大小，单位Kb，默认为1024Kb，即1Mb
@@ -280,7 +503,7 @@ const methods = {
    */
   dd (filter, count = 1024) {
     filter = toArrFilters(filter);
-    helper.ddConfig = {
+    helper.config.dd = {
       enabled: true,
       filters: filter,
       count
@@ -288,7 +511,7 @@ const methods = {
   },
   /* 禁止给组件注入空数据 */
   undd () {
-    helper.ddConfig = {
+    helper.config.dd = {
       enabled: false,
       filters: [],
       count: 1024
@@ -436,17 +659,26 @@ function mixinRegister (Vue) {
         : (helper.componentsSummaryStatistics[this._componentName] = [componentSummary]);
 
       printLifeCycle(this, 'beforeCreate');
+
+      /* 使用$destroy阻断组件的创建 */
+      if (helper.config.blockFilters && helper.config.blockFilters.length) {
+        if (helper.config.blockFilters.includes(this._componentName)) {
+          debug.log(`[block component]: name: ${this._componentName}, tag: ${this._componentTag}, uid: ${this._uid}`);
+          this.$destroy();
+          return false
+        }
+      }
     },
     created: function () {
       /* 增加空白数据，方便观察内存泄露情况 */
-      if (helper.ddConfig.enabled) {
+      if (helper.config.dd.enabled) {
         let needDd = false;
 
-        if (helper.ddConfig.filters.length === 0) {
+        if (helper.config.dd.filters.length === 0) {
           needDd = true;
         } else {
-          for (let index = 0; index < helper.ddConfig.filters.length; index++) {
-            const filter = helper.ddConfig.filters[index];
+          for (let index = 0; index < helper.config.dd.filters.length; index++) {
+            const filter = helper.config.dd.filters[index];
             if (filter === this._componentName || String(this._componentName).endsWith(filter)) {
               needDd = true;
               break
@@ -455,7 +687,7 @@ function mixinRegister (Vue) {
         }
 
         if (needDd) {
-          const count = helper.ddConfig.count * 1024;
+          const count = helper.config.dd.count * 1024;
           const componentInfo = `tag: ${this._componentTag}, uid: ${this._uid}, createdTime: ${this._createdHumanTime}`;
 
           /* 此处必须使用JSON.stringify对产生的字符串进行消费，否则没法将内存占用上去 */
@@ -475,6 +707,12 @@ function mixinRegister (Vue) {
     },
     beforeUpdate: function () {
       printLifeCycle(this, 'beforeUpdate');
+    },
+    activated: function () {
+      printLifeCycle(this, 'activated');
+    },
+    deactivated: function () {
+      printLifeCycle(this, 'deactivated');
     },
     updated: function () {
       printLifeCycle(this, 'updated');
@@ -640,8 +878,17 @@ var zhCN = {
     printLifeCycleInfo: '打印组件生命周期信息',
     notPrintLifeCycleInfo: '取消组件生命周期信息打印',
     printLifeCycleInfoPrompt: {
-      lifecycleFilters: '请输入要打印的生命周期名称，多个可用,或|分隔，不输入则默认打印created',
-      componentFilters: '请输入要打印的组件名称，多个可用,或|分隔，不输入则默认打印所有组件'
+      lifecycleFilters: '输入要打印的生命周期名称，多个可用,或|分隔，不输入则默认打印created',
+      componentFilters: '输入要打印的组件名称，多个可用,或|分隔，不输入则默认打印所有组件'
+    },
+    findComponents: '查找组件',
+    findComponentsPrompt: {
+      filters: '输入要查找的组件名称，或uid，多个可用,或|分隔'
+    },
+    findNotContainElementComponents: '查找不包含DOM对象的组件',
+    blockComponents: '阻断组件的创建',
+    blockComponentsPrompt: {
+      filters: '输入要阻断的组件名称，多个可用,或|分隔，输入为空则取消阻断'
     },
     dd: '数据注入（dd）',
     undd: '取消数据注入（undd）',
@@ -735,16 +982,62 @@ const functionCall = {
     debug.log(i18n.t('debugHelper.viewVueDebugHelperObject'), helper);
   },
   componentsStatistics () {
-    debug.log(i18n.t('debugHelper.componentsStatistics'), helper.methods.componentsStatistics());
+    const result = helper.methods.componentsStatistics();
+    let total = 0;
+
+    /* 提供友好的可视化展示方式 */
+    console.table && console.table(result.map(item => {
+      total += item.componentInstance.length;
+      return {
+        componentName: item.componentName,
+        count: item.componentInstance.length
+      }
+    }));
+
+    debug.log(`${i18n.t('debugHelper.componentsStatistics')} (total:${total})`, result);
   },
   destroyStatisticsSort () {
-    debug.log(i18n.t('debugHelper.destroyStatisticsSort'), helper.methods.destroyStatisticsSort());
+    const result = helper.methods.destroyStatisticsSort();
+
+    /* 提供友好的可视化展示方式 */
+    console.table && console.table(result.map(item => {
+      const durationList = item.destroyList.map(item => item.duration);
+      const maxDuration = Math.max(...durationList);
+      const minDuration = Math.min(...durationList);
+      const durationRange = maxDuration - minDuration;
+
+      return {
+        componentName: item.componentName,
+        count: item.destroyList.length,
+        avgDuration: durationList.reduce((pre, cur) => pre + cur, 0) / durationList.length,
+        maxDuration,
+        minDuration,
+        durationRange,
+        durationRangePercent: (1000 - minDuration) / durationRange
+      }
+    }));
+
+    debug.log(i18n.t('debugHelper.destroyStatisticsSort'), result);
   },
   componentsSummaryStatisticsSort () {
-    debug.log(i18n.t('debugHelper.componentsSummaryStatisticsSort'), helper.methods.componentsSummaryStatisticsSort());
+    const result = helper.methods.componentsSummaryStatisticsSort();
+    let total = 0;
+
+    /* 提供友好的可视化展示方式 */
+    console.table && console.table(result.map(item => {
+      total += item.componentsSummary.length;
+      return {
+        componentName: item.componentName,
+        count: item.componentsSummary.length
+      }
+    }));
+
+    debug.log(`${i18n.t('debugHelper.componentsSummaryStatisticsSort')} (total:${total})`, result);
   },
   getDestroyByDuration () {
-    debug.log(i18n.t('debugHelper.getDestroyByDuration'), helper.methods.getDestroyByDuration());
+    const destroyInfo = helper.methods.getDestroyByDuration();
+    console.table && console.table(destroyInfo.destroyList);
+    debug.log(i18n.t('debugHelper.getDestroyByDuration'), destroyInfo);
   },
   clearAll () {
     helper.methods.clearAll();
@@ -752,13 +1045,13 @@ const functionCall = {
   },
 
   printLifeCycleInfo () {
-    const lifecycleFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.lifecycleFilters'), localStorage.getItem('vdh_lf_lifecycleFilters') || 'created');
-    const componentFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.componentFilters'), localStorage.getItem('vdh_lf_componentFilters') || '');
-    lifecycleFilters && localStorage.setItem('vdh_lf_lifecycleFilters', lifecycleFilters);
-    componentFilters && localStorage.setItem('vdh_lf_componentFilters', componentFilters);
+    const lifecycleFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.lifecycleFilters'), helper.config.lifecycle.filters.join(','));
+    const componentFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.componentFilters'), helper.config.lifecycle.componentFilters.join(','));
 
-    debug.log(i18n.t('debugHelper.printLifeCycleInfo'));
-    helper.methods.printLifeCycleInfo(lifecycleFilters, componentFilters);
+    if (lifecycleFilters !== null && componentFilters !== null) {
+      debug.log(i18n.t('debugHelper.printLifeCycleInfo'));
+      helper.methods.printLifeCycleInfo(lifecycleFilters, componentFilters);
+    }
   },
 
   notPrintLifeCycleInfo () {
@@ -766,13 +1059,33 @@ const functionCall = {
     helper.methods.notPrintLifeCycleInfo();
   },
 
+  findComponents () {
+    const filters = window.prompt(i18n.t('debugHelper.findComponentsPrompt.filters'), helper.config.findComponentsFilters.join(','));
+    if (filters !== null) {
+      debug.log(i18n.t('debugHelper.findComponents'), helper.methods.findComponents(filters));
+    }
+  },
+
+  findNotContainElementComponents () {
+    debug.log(i18n.t('debugHelper.findNotContainElementComponents'), helper.methods.findNotContainElementComponents());
+  },
+
+  blockComponents () {
+    const filters = window.prompt(i18n.t('debugHelper.blockComponentsPrompt.filters'), helper.config.blockFilters.join(','));
+    if (filters !== null) {
+      helper.methods.blockComponents(filters);
+      debug.log(i18n.t('debugHelper.blockComponents'), filters);
+    }
+  },
+
   dd () {
-    const filter = window.prompt(i18n.t('debugHelper.ddPrompt.filter'), localStorage.getItem('vdh_dd_filter') || '');
-    const count = window.prompt(i18n.t('debugHelper.ddPrompt.count'), localStorage.getItem('vdh_dd_count') || 1024);
-    filter && localStorage.setItem('vdh_dd_filter', filter);
-    count && localStorage.setItem('vdh_dd_count', count);
-    debug.log(i18n.t('debugHelper.dd'));
-    helper.methods.dd(filter, Number(count));
+    const filter = window.prompt(i18n.t('debugHelper.ddPrompt.filter'), helper.config.dd.filters.join(','));
+    const count = window.prompt(i18n.t('debugHelper.ddPrompt.count'), helper.config.dd.count);
+
+    if (filter !== null && count !== null) {
+      debug.log(i18n.t('debugHelper.dd'));
+      helper.methods.dd(filter, Number(count));
+    }
   },
   undd () {
     debug.log(i18n.t('debugHelper.undd'));
@@ -1414,7 +1727,7 @@ function hotKeyRegister () {
     'shift+alt+d': functionCall.destroyStatisticsSort,
     'shift+alt+c': functionCall.clearAll,
     'shift+alt+e': function (event, handler) {
-      if (helper.ddConfig.enabled) {
+      if (helper.config.dd.enabled) {
         functionCall.undd();
       } else {
         functionCall.dd();
@@ -1611,8 +1924,6 @@ window._debugMode_ = true
     debug.log('running in iframe, skip init', window.location.href);
     return false
   }
-
-  // debug.log('init')
 
   const win = await getPageWindow();
   vueDetect(win, function (Vue) {

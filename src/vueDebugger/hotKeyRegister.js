@@ -17,7 +17,7 @@ function hotKeyRegister () {
     'shift+alt+d': functionCall.destroyStatisticsSort,
     'shift+alt+c': functionCall.clearAll,
     'shift+alt+e': function (event, handler) {
-      if (helper.ddConfig.enabled) {
+      if (helper.config.dd.enabled) {
         functionCall.undd()
       } else {
         functionCall.dd()

@@ -23,8 +23,6 @@ window._debugMode_ = true
     return false
   }
 
-  // debug.log('init')
-
   const win = await getPageWindow()
   vueDetector(win, function (Vue) {
     mixinRegister(Vue)

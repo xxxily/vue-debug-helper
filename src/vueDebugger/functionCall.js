@@ -16,16 +16,62 @@ const functionCall = {
     debug.log(i18n.t('debugHelper.viewVueDebugHelperObject'), helper)
   },
   componentsStatistics () {
-    debug.log(i18n.t('debugHelper.componentsStatistics'), helper.methods.componentsStatistics())
+    const result = helper.methods.componentsStatistics()
+    let total = 0
+
+    /* 提供友好的可视化展示方式 */
+    console.table && console.table(result.map(item => {
+      total += item.componentInstance.length
+      return {
+        componentName: item.componentName,
+        count: item.componentInstance.length
+      }
+    }))
+
+    debug.log(`${i18n.t('debugHelper.componentsStatistics')} (total:${total})`, result)
   },
   destroyStatisticsSort () {
-    debug.log(i18n.t('debugHelper.destroyStatisticsSort'), helper.methods.destroyStatisticsSort())
+    const result = helper.methods.destroyStatisticsSort()
+
+    /* 提供友好的可视化展示方式 */
+    console.table && console.table(result.map(item => {
+      const durationList = item.destroyList.map(item => item.duration)
+      const maxDuration = Math.max(...durationList)
+      const minDuration = Math.min(...durationList)
+      const durationRange = maxDuration - minDuration
+
+      return {
+        componentName: item.componentName,
+        count: item.destroyList.length,
+        avgDuration: durationList.reduce((pre, cur) => pre + cur, 0) / durationList.length,
+        maxDuration,
+        minDuration,
+        durationRange,
+        durationRangePercent: (1000 - minDuration) / durationRange
+      }
+    }))
+
+    debug.log(i18n.t('debugHelper.destroyStatisticsSort'), result)
   },
   componentsSummaryStatisticsSort () {
-    debug.log(i18n.t('debugHelper.componentsSummaryStatisticsSort'), helper.methods.componentsSummaryStatisticsSort())
+    const result = helper.methods.componentsSummaryStatisticsSort()
+    let total = 0
+
+    /* 提供友好的可视化展示方式 */
+    console.table && console.table(result.map(item => {
+      total += item.componentsSummary.length
+      return {
+        componentName: item.componentName,
+        count: item.componentsSummary.length
+      }
+    }))
+
+    debug.log(`${i18n.t('debugHelper.componentsSummaryStatisticsSort')} (total:${total})`, result)
   },
   getDestroyByDuration () {
-    debug.log(i18n.t('debugHelper.getDestroyByDuration'), helper.methods.getDestroyByDuration())
+    const destroyInfo = helper.methods.getDestroyByDuration()
+    console.table && console.table(destroyInfo.destroyList)
+    debug.log(i18n.t('debugHelper.getDestroyByDuration'), destroyInfo)
   },
   clearAll () {
     helper.methods.clearAll()
@@ -33,13 +79,13 @@ const functionCall = {
   },
 
   printLifeCycleInfo () {
-    const lifecycleFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.lifecycleFilters'), localStorage.getItem('vdh_lf_lifecycleFilters') || 'created')
-    const componentFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.componentFilters'), localStorage.getItem('vdh_lf_componentFilters') || '')
-    lifecycleFilters && localStorage.setItem('vdh_lf_lifecycleFilters', lifecycleFilters)
-    componentFilters && localStorage.setItem('vdh_lf_componentFilters', componentFilters)
+    const lifecycleFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.lifecycleFilters'), helper.config.lifecycle.filters.join(','))
+    const componentFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.componentFilters'), helper.config.lifecycle.componentFilters.join(','))
 
-    debug.log(i18n.t('debugHelper.printLifeCycleInfo'))
-    helper.methods.printLifeCycleInfo(lifecycleFilters, componentFilters)
+    if (lifecycleFilters !== null && componentFilters !== null) {
+      debug.log(i18n.t('debugHelper.printLifeCycleInfo'))
+      helper.methods.printLifeCycleInfo(lifecycleFilters, componentFilters)
+    }
   },
 
   notPrintLifeCycleInfo () {
@@ -47,13 +93,33 @@ const functionCall = {
     helper.methods.notPrintLifeCycleInfo()
   },
 
+  findComponents () {
+    const filters = window.prompt(i18n.t('debugHelper.findComponentsPrompt.filters'), helper.config.findComponentsFilters.join(','))
+    if (filters !== null) {
+      debug.log(i18n.t('debugHelper.findComponents'), helper.methods.findComponents(filters))
+    }
+  },
+
+  findNotContainElementComponents () {
+    debug.log(i18n.t('debugHelper.findNotContainElementComponents'), helper.methods.findNotContainElementComponents())
+  },
+
+  blockComponents () {
+    const filters = window.prompt(i18n.t('debugHelper.blockComponentsPrompt.filters'), helper.config.blockFilters.join(','))
+    if (filters !== null) {
+      helper.methods.blockComponents(filters)
+      debug.log(i18n.t('debugHelper.blockComponents'), filters)
+    }
+  },
+
   dd () {
-    const filter = window.prompt(i18n.t('debugHelper.ddPrompt.filter'), localStorage.getItem('vdh_dd_filter') || '')
-    const count = window.prompt(i18n.t('debugHelper.ddPrompt.count'), localStorage.getItem('vdh_dd_count') || 1024)
-    filter && localStorage.setItem('vdh_dd_filter', filter)
-    count && localStorage.setItem('vdh_dd_count', count)
-    debug.log(i18n.t('debugHelper.dd'))
-    helper.methods.dd(filter, Number(count))
+    const filter = window.prompt(i18n.t('debugHelper.ddPrompt.filter'), helper.config.dd.filters.join(','))
+    const count = window.prompt(i18n.t('debugHelper.ddPrompt.count'), helper.config.dd.count)
+
+    if (filter !== null && count !== null) {
+      debug.log(i18n.t('debugHelper.dd'))
+      helper.methods.dd(filter, Number(count))
+    }
   },
   undd () {
     debug.log(i18n.t('debugHelper.undd'))

@@ -4,9 +4,13 @@ Vue组件探测、统计、分析辅助脚本
 脚本安装地址：[https://greasyfork.org/scripts/444075](https://greasyfork.org/scripts/444075)
 
 ## 特性
+* 自动开启生产环境下的Vue调试模式
+* 按需打印组件的生命周期信息
 * 支持当前激活的组件统计
 * 支持对已销毁的组件进行统计
 * 支持对对组件存活时间进行统计
+* 支持进行组件模糊查找和根据uid精确查找
+* 支持查找没有DOM关联的组件
 * 支持给指定组件或全部组件注入空白数据
 * 支持快速查看了解组件的关系链
 
@@ -30,3 +34,15 @@ Vue组件探测、统计、分析辅助脚本，主要用于分析当前应用�
 
 ## 更新日志
 * [https://github.com/xxxily/vue-debug-helper/blob/main/changeLog.md](https://github.com/xxxily/vue-debug-helper/blob/main/changeLog.md)
+
+## TODO
+* 打点统计功能
+* 组件调用整体关系链输出
+* 停用watch和computed
+* 实现组件彻底阻断
+* 实现自定义快捷键
+* 操作提示语之操作反馈优化
+* 解决开启调试模式后，vue devtools 没正常开启问题
+* 支持作为调试脚本，接入到应用
+* 组件文件地址信息关联
+* vue3支持
