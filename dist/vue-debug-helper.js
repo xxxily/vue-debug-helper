@@ -6,7 +6,7 @@
 // @name:ja      Vueデバッグ分析アシスタント
 // @namespace    https://github.com/xxxily/vue-debug-helper
 // @homepage     https://github.com/xxxily/vue-debug-helper
-// @version      0.0.6
+// @version      0.0.7
 // @description  Vue components debug helper
 // @description:en  Vue components debug helper
 // @description:zh  Vue组件探测、统计、分析辅助脚本
@@ -246,6 +246,8 @@ window.vueDebugHelper = {
 
     /* 阻止组件创建的过滤器 */
     blockFilters: [],
+
+    devtools: true,
 
     /* 给组件注入空白数据的配置信息 */
     dd: {
@@ -522,6 +524,10 @@ const methods = {
       const component = helper.components[key];
       component.$data && delete component.$data.__dd__;
     });
+  },
+
+  toggleDevtools () {
+    helper.config.devtools = !helper.config.devtools;
   }
 };
 
@@ -611,6 +617,21 @@ function mixinRegister (Vue) {
   if (!Vue || !Vue.mixin) {
     debug.error('未检查到VUE对象，请检查是否引入了VUE，且将VUE对象挂载到全局变量window.Vue上');
     return false
+  }
+
+  /* 自动开启Vue的调试模式 */
+  if (Vue.config) {
+    if (helper.config.devtools) {
+      Vue.config.debug = true;
+      Vue.config.devtools = true;
+      Vue.config.performance = true;
+    } else {
+      Vue.config.debug = false;
+      Vue.config.devtools = false;
+      Vue.config.performance = false;
+    }
+  } else {
+    debug.log('Vue.config is not defined');
   }
 
   Vue.mixin({
@@ -895,6 +916,10 @@ var zhCN = {
     ddPrompt: {
       filter: '组件过滤器（如果为空，则对所有组件注入）',
       count: '指定注入数据的重复次数（默认1024）'
+    },
+    devtools: {
+      enabled: '自动开启vue-devtools',
+      disable: '禁止开启vue-devtools'
     }
   }
 };
@@ -1114,13 +1139,17 @@ function menuRegister (Vue) {
     return false
   }
 
-  // 批量注册菜单
+  /* 批量注册菜单 */
   Object.keys(functionCall).forEach(key => {
     const text = i18n.t(`debugHelper.${key}`);
     if (text && functionCall[key] instanceof Function) {
       monkeyMenu.on(text, functionCall[key]);
     }
   });
+
+  /* 是否开启vue-devtools的菜单 */
+  const devtoolsText = helper.config.devtools ? i18n.t('debugHelper.devtools.disable') : i18n.t('debugHelper.devtools.enabled');
+  monkeyMenu.on(devtoolsText, helper.methods.toggleDevtools);
 
   // monkeyMenu.on('i18n.t('setting')', () => {
   //   window.alert('功能开发中，敬请期待...')
@@ -1822,7 +1851,7 @@ function vueDetect (win, callback) {
   // Method 1: MutationObserver detector
   mutationDetector((Vue) => {
     if (!detectSuc) {
-      debug.info('------------- Vue mutation detected -------------');
+      debug.info(`------------- Vue mutation detected (${Vue.version}) -------------`);
       detectSuc = true;
       callback(Vue);
     }
@@ -1836,7 +1865,7 @@ function vueDetect (win, callback) {
     // Method 2: Check  Vue 3
     const vueDetected = !!(win.__VUE__);
     if (vueDetected) {
-      debug.info('------------- Vue 3 detected -------------');
+      debug.info(`------------- Vue global detected (${win.__VUE__.version}) -------------`);
       detectSuc = true;
       callback(win.__VUE__);
       return
@@ -1856,7 +1885,7 @@ function vueDetect (win, callback) {
       while (Vue.super) {
         Vue = Vue.super;
       }
-      debug.info('------------- Vue 2 detected -------------');
+      debug.info(`------------- Vue dom detected (${Vue.version}) -------------`);
       detectSuc = true;
       callback(Vue);
       return
@@ -1864,16 +1893,23 @@ function vueDetect (win, callback) {
 
     if (detectRemainingTries > 0) {
       detectRemainingTries--;
-      setTimeout(() => {
-        runDetect();
-      }, delay);
-      delay *= 5;
+
+      if (detectRemainingTries >= 7) {
+        setTimeout(() => {
+          runDetect();
+        }, 40);
+      } else {
+        setTimeout(() => {
+          runDetect();
+        }, delay);
+        delay *= 5;
+      }
     }
   }
 
   setTimeout(() => {
     runDetect();
-  }, 100);
+  }, 40);
 }
 
 /**
@@ -1915,34 +1951,47 @@ async function getPageWindow () {
     window.dispatchEvent(new window.Event('get-page-window-event'));
   })
 }
+// getPageWindow()
+
+/**
+ * 通过同步的方式获取pageWindow
+ * 注意同步获取的方式需要将脚本写入head，部分网站由于安全策略会导致写入失败，而无法正常获取
+ * @returns {*}
+ */
+function getPageWindowSync () {
+  if (document._win_) return document._win_
+
+  const head = document.head || document.querySelector('head');
+  const script = document.createElement('script');
+  script.appendChild(document.createTextNode('document._win_ = window'));
+  head.appendChild(script);
+
+  return document._win_
+}
 
 let registerStatus = 'init';
-window._debugMode_ = true
+window._debugMode_ = true;
 
-;(async function () {
+function init (win) {
   if (isInIframe()) {
     debug.log('running in iframe, skip init', window.location.href);
     return false
   }
 
-  const win = await getPageWindow();
+  if (registerStatus === 'initing') {
+    return false
+  }
+
+  registerStatus = 'initing';
+
   vueDetect(win, function (Vue) {
     mixinRegister(Vue);
     menuRegister(Vue);
     hotKeyRegister();
 
-    // 挂载到window上，方便通过控制台调用调试
+    /* 挂载到window上，方便通过控制台调用调试 */
     helper.Vue = Vue;
     win.vueDebugHelper = helper;
-
-    // 自动开启Vue的调试模式
-    if (Vue.config) {
-      Vue.config.debug = true;
-      Vue.config.devtools = true;
-      Vue.config.performance = true;
-    } else {
-      debug.log('Vue.config is not defined');
-    }
 
     debug.log('vue debug helper register success');
     registerStatus = 'success';
@@ -1954,4 +2003,21 @@ window._debugMode_ = true
       debug.warn('vue debug helper register failed, please check if vue is loaded .', win.location.href);
     }
   }, 1000 * 10);
+}
+
+let win = null;
+try {
+  win = getPageWindowSync();
+  if (win) {
+    init(win);
+    debug.log('getPageWindowSync success');
+  }
+} catch (e) {
+  debug.error('getPageWindowSync failed', e);
+}
+(async function () {
+  if (!win) {
+    win = await getPageWindow();
+    init(win);
+  }
 })();

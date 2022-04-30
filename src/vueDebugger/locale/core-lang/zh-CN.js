@@ -31,6 +31,10 @@ export default {
     ddPrompt: {
       filter: '组件过滤器（如果为空，则对所有组件注入）',
       count: '指定注入数据的重复次数（默认1024）'
+    },
+    devtools: {
+      enabled: '自动开启vue-devtools',
+      disable: '禁止开启vue-devtools'
     }
   }
 }

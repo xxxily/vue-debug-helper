@@ -29,6 +29,21 @@ function mixinRegister (Vue) {
     return false
   }
 
+  /* 自动开启Vue的调试模式 */
+  if (Vue.config) {
+    if (helper.config.devtools) {
+      Vue.config.debug = true
+      Vue.config.devtools = true
+      Vue.config.performance = true
+    } else {
+      Vue.config.debug = false
+      Vue.config.devtools = false
+      Vue.config.performance = false
+    }
+  } else {
+    debug.log('Vue.config is not defined')
+  }
+
   Vue.mixin({
     beforeCreate: function () {
       // const tag = this.$options?._componentTag || this.$vnode?.tag || this._uid

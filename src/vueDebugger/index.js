@@ -11,36 +11,33 @@ import {
 } from '../libs/utils/index'
 
 import {
-  getPageWindow
+  getPageWindow,
+  getPageWindowSync
 } from './window'
 
 let registerStatus = 'init'
 window._debugMode_ = true
 
-;(async function () {
+function init (win) {
   if (isInIframe()) {
     debug.log('running in iframe, skip init', window.location.href)
     return false
   }
 
-  const win = await getPageWindow()
+  if (registerStatus === 'initing') {
+    return false
+  }
+
+  registerStatus = 'initing'
+
   vueDetector(win, function (Vue) {
     mixinRegister(Vue)
     menuRegister(Vue)
     hotKeyRegister(Vue)
 
-    // 挂载到window上，方便通过控制台调用调试
+    /* 挂载到window上，方便通过控制台调用调试 */
     helper.Vue = Vue
     win.vueDebugHelper = helper
-
-    // 自动开启Vue的调试模式
-    if (Vue.config) {
-      Vue.config.debug = true
-      Vue.config.devtools = true
-      Vue.config.performance = true
-    } else {
-      debug.log('Vue.config is not defined')
-    }
 
     debug.log('vue debug helper register success')
     registerStatus = 'success'
@@ -52,4 +49,22 @@ window._debugMode_ = true
       debug.warn('vue debug helper register failed, please check if vue is loaded .', win.location.href)
     }
   }, 1000 * 10)
+}
+
+let win = null
+try {
+  win = getPageWindowSync()
+  if (win) {
+    init(win)
+    debug.log('getPageWindowSync success')
+  }
+} catch (e) {
+  debug.error('getPageWindowSync failed', e)
+}
+
+;(async function () {
+  if (!win) {
+    win = await getPageWindow()
+    init(win)
+  }
 })()

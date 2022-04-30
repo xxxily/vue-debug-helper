@@ -31,6 +31,8 @@ window.vueDebugHelper = {
     /* 阻止组件创建的过滤器 */
     blockFilters: [],
 
+    devtools: true,
+
     /* 给组件注入空白数据的配置信息 */
     dd: {
       enabled: false,
@@ -306,6 +308,10 @@ const methods = {
       const component = helper.components[key]
       component.$data && delete component.$data.__dd__
     })
+  },
+
+  toggleDevtools () {
+    helper.config.devtools = !helper.config.devtools
   }
 }
 

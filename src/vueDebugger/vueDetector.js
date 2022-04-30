@@ -81,7 +81,7 @@ function vueDetect (win, callback) {
   // Method 1: MutationObserver detector
   mutationDetector((Vue) => {
     if (!detectSuc) {
-      debug.info('------------- Vue mutation detected -------------')
+      debug.info(`------------- Vue mutation detected (${Vue.version}) -------------`)
       detectSuc = true
       callback(Vue)
     }
@@ -95,7 +95,7 @@ function vueDetect (win, callback) {
     // Method 2: Check  Vue 3
     const vueDetected = !!(win.__VUE__)
     if (vueDetected) {
-      debug.info('------------- Vue 3 detected -------------')
+      debug.info(`------------- Vue global detected (${win.__VUE__.version}) -------------`)
       detectSuc = true
       callback(win.__VUE__)
       return
@@ -115,7 +115,7 @@ function vueDetect (win, callback) {
       while (Vue.super) {
         Vue = Vue.super
       }
-      debug.info('------------- Vue 2 detected -------------')
+      debug.info(`------------- Vue dom detected (${Vue.version}) -------------`)
       detectSuc = true
       callback(Vue)
       return
@@ -123,16 +123,23 @@ function vueDetect (win, callback) {
 
     if (detectRemainingTries > 0) {
       detectRemainingTries--
-      setTimeout(() => {
-        runDetect()
-      }, delay)
-      delay *= 5
+
+      if (detectRemainingTries >= 7) {
+        setTimeout(() => {
+          runDetect()
+        }, 40)
+      } else {
+        setTimeout(() => {
+          runDetect()
+        }, delay)
+        delay *= 5
+      }
     }
   }
 
   setTimeout(() => {
     runDetect()
-  }, 100)
+  }, 40)
 }
 
 export default vueDetect

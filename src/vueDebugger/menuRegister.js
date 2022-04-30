@@ -8,6 +8,7 @@
  */
 import monkeyMenu from './monkeyMenu'
 import functionCall from './functionCall'
+import helper from './helper'
 import i18n from './i18n'
 
 function menuRegister (Vue) {
@@ -22,13 +23,17 @@ function menuRegister (Vue) {
     return false
   }
 
-  // 批量注册菜单
+  /* 批量注册菜单 */
   Object.keys(functionCall).forEach(key => {
     const text = i18n.t(`debugHelper.${key}`)
     if (text && functionCall[key] instanceof Function) {
       monkeyMenu.on(text, functionCall[key])
     }
   })
+
+  /* 是否开启vue-devtools的菜单 */
+  const devtoolsText = helper.config.devtools ? i18n.t('debugHelper.devtools.disable') : i18n.t('debugHelper.devtools.enabled')
+  monkeyMenu.on(devtoolsText, helper.methods.toggleDevtools)
 
   // monkeyMenu.on('i18n.t('setting')', () => {
   //   window.alert('功能开发中，敬请期待...')
