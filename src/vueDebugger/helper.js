@@ -115,8 +115,7 @@ const methods = {
     const destroyListDuration = destroyList.map(item => item.duration).sort()
     const maxDuration = Math.max(...destroyListDuration)
     const minDuration = Math.min(...destroyListDuration)
-    const avgDuration =
-      destroyListDuration.reduce((a, b) => a + b, 0) / destroyListLength
+    const avgDuration = destroyListDuration.reduce((a, b) => a + b, 0) / destroyListLength
     const durationRange = maxDuration - minDuration
     const durationRangePercent = (duration - minDuration) / durationRange
 
@@ -213,12 +212,13 @@ const methods = {
 
     const result = {
       components: [],
+      globalComponents: [],
       destroyedComponents: []
     }
 
+    /* 在helper.components里进行组件查找 */
     const components = helper.components
     const keys = Object.keys(components)
-
     for (let i = 0; i < keys.length; i++) {
       const component = components[keys[i]]
 
@@ -235,6 +235,23 @@ const methods = {
             result.components.push(component)
             break
           }
+        }
+      }
+    }
+
+    /* 进行全局组件查找 */
+    const globalComponentsKeys = Object.keys(helper.Vue.options.components)
+    for (let i = 0; i < globalComponentsKeys.length; i++) {
+      const key = String(globalComponentsKeys[i])
+      const component = helper.Vue.options.components[globalComponentsKeys[i]]
+
+      for (let j = 0; j < filters.length; j++) {
+        const filter = filters[j]
+        if (key.includes(filter)) {
+          const tmpObj = {}
+          tmpObj[key] = component
+          result.globalComponents.push(tmpObj)
+          break
         }
       }
     }
