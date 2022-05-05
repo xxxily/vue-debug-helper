@@ -123,10 +123,17 @@ const functionCall = {
       helper.methods.dd(filter, Number(count))
     }
   },
+
   undd () {
     debug.log(i18n.t('debugHelper.undd'))
     helper.methods.undd()
+  },
+
+  toggleHackVueComponent () {
+    helper.config.hackVueComponent ? helper.methods.unHackVueComponent() : helper.methods.hackVueComponent()
+    helper.config.hackVueComponent = !helper.config.hackVueComponent
   }
+
 }
 
 export default functionCall

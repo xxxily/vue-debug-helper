@@ -6,7 +6,7 @@
 // @name:ja      Vueデバッグ分析アシスタント
 // @namespace    https://github.com/xxxily/vue-debug-helper
 // @homepage     https://github.com/xxxily/vue-debug-helper
-// @version      0.0.7
+// @version      0.0.8
 // @description  Vue components debug helper
 // @description:en  Vue components debug helper
 // @description:zh  Vue组件探测、统计、分析辅助脚本
@@ -221,6 +221,259 @@ function toArrFilters (filter) {
   return filter
 }
 
+class Debug {
+  constructor (msg, printTime = false) {
+    const t = this;
+    msg = msg || 'debug message:';
+    t.log = t.createDebugMethod('log', null, msg);
+    t.error = t.createDebugMethod('error', null, msg);
+    t.info = t.createDebugMethod('info', null, msg);
+    t.warn = t.createDebugMethod('warn', null, msg);
+  }
+
+  create (msg) {
+    return new Debug(msg)
+  }
+
+  createDebugMethod (name, color, tipsMsg) {
+    name = name || 'info';
+
+    const bgColorMap = {
+      info: '#2274A5',
+      log: '#95B46A',
+      error: '#D33F49'
+    };
+
+    const printTime = this.printTime;
+
+    return function () {
+      if (!window._debugMode_) {
+        return false
+      }
+
+      const msg = tipsMsg || 'debug message:';
+
+      const arg = Array.from(arguments);
+      arg.unshift(`color: white; background-color: ${color || bgColorMap[name] || '#95B46A'}`);
+
+      if (printTime) {
+        const curTime = new Date();
+        const H = curTime.getHours();
+        const M = curTime.getMinutes();
+        const S = curTime.getSeconds();
+        arg.unshift(`%c [${H}:${M}:${S}] ${msg} `);
+      } else {
+        arg.unshift(`%c ${msg} `);
+      }
+
+      window.console[name].apply(window.console, arg);
+    }
+  }
+
+  isDebugMode () {
+    return Boolean(window._debugMode_)
+  }
+}
+
+var Debug$1 = new Debug();
+
+var debug = Debug$1.create('vueDebugHelper:');
+
+/**
+ * 简单的i18n库
+ */
+
+class I18n {
+  constructor (config) {
+    this._languages = {};
+    this._locale = this.getClientLang();
+    this._defaultLanguage = '';
+    this.init(config);
+  }
+
+  init (config) {
+    if (!config) return false
+
+    const t = this;
+    t._locale = config.locale || t._locale;
+    /* 指定当前要是使用的语言环境，默认无需指定，会自动读取 */
+    t._languages = config.languages || t._languages;
+    t._defaultLanguage = config.defaultLanguage || t._defaultLanguage;
+  }
+
+  use () {}
+
+  t (path) {
+    const t = this;
+    let result = t.getValByPath(t._languages[t._locale] || {}, path);
+
+    /* 版本回退 */
+    if (!result && t._locale !== t._defaultLanguage) {
+      result = t.getValByPath(t._languages[t._defaultLanguage] || {}, path);
+    }
+
+    return result || ''
+  }
+
+  /* 当前语言值 */
+  language () {
+    return this._locale
+  }
+
+  languages () {
+    return this._languages
+  }
+
+  changeLanguage (locale) {
+    if (this._languages[locale]) {
+      this._languages = locale;
+      return locale
+    } else {
+      return false
+    }
+  }
+
+  /**
+   * 根据文本路径获取对象里面的值
+   * @param obj {Object} -必选 要操作的对象
+   * @param path {String} -必选 路径信息
+   * @returns {*}
+   */
+  getValByPath (obj, path) {
+    path = path || '';
+    const pathArr = path.split('.');
+    let result = obj;
+
+    /* 递归提取结果值 */
+    for (let i = 0; i < pathArr.length; i++) {
+      if (!result) break
+      result = result[pathArr[i]];
+    }
+
+    return result
+  }
+
+  /* 获取客户端当前的语言环境 */
+  getClientLang () {
+    return navigator.languages ? navigator.languages[0] : navigator.language
+  }
+}
+
+var zhCN = {
+  about: '关于',
+  issues: '反馈',
+  setting: '设置',
+  hotkeys: '快捷键',
+  donate: '赞赏',
+  debugHelper: {
+    viewVueDebugHelperObject: 'vueDebugHelper对象',
+    componentsStatistics: '当前存活组件统计',
+    destroyStatisticsSort: '已销毁组件统计',
+    componentsSummaryStatisticsSort: '全部组件混合统计',
+    getDestroyByDuration: '组件存活时间信息',
+    clearAll: '清空统计信息',
+    printLifeCycleInfo: '打印组件生命周期信息',
+    notPrintLifeCycleInfo: '取消组件生命周期信息打印',
+    printLifeCycleInfoPrompt: {
+      lifecycleFilters: '输入要打印的生命周期名称，多个可用,或|分隔，不输入则默认打印created',
+      componentFilters: '输入要打印的组件名称，多个可用,或|分隔，不输入则默认打印所有组件'
+    },
+    findComponents: '查找组件',
+    findComponentsPrompt: {
+      filters: '输入要查找的组件名称，或uid，多个可用,或|分隔'
+    },
+    findNotContainElementComponents: '查找不包含DOM对象的组件',
+    blockComponents: '阻断组件的创建',
+    blockComponentsPrompt: {
+      filters: '输入要阻断的组件名称，多个可用,或|分隔，输入为空则取消阻断'
+    },
+    dd: '数据注入（dd）',
+    undd: '取消数据注入（undd）',
+    ddPrompt: {
+      filter: '组件过滤器（如果为空，则对所有组件注入）',
+      count: '指定注入数据的重复次数（默认1024）'
+    },
+    toggleHackVueComponent: '改写/还原Vue.component',
+    hackVueComponent: {
+      hack: '改写Vue.component',
+      unhack: '还原Vue.component'
+    },
+    devtools: {
+      enabled: '自动开启vue-devtools',
+      disable: '禁止开启vue-devtools'
+    }
+  }
+};
+
+var enUS = {
+  about: 'about',
+  issues: 'feedback',
+  setting: 'settings',
+  hotkeys: 'Shortcut keys',
+  donate: 'donate',
+  debugHelper: {
+    viewVueDebugHelperObject: 'vueDebugHelper object',
+    componentsStatistics: 'Current surviving component statistics',
+    destroyStatisticsSort: 'Destroyed component statistics',
+    componentsSummaryStatisticsSort: 'All components mixed statistics',
+    getDestroyByDuration: 'Component survival time information',
+    clearAll: 'Clear statistics',
+    dd: 'Data injection (dd)',
+    undd: 'Cancel data injection (undd)',
+    ddPrompt: {
+      filter: 'Component filter (if empty, inject all components)',
+      count: 'Specify the number of repetitions of injected data (default 1024)'
+    }
+  }
+};
+
+var zhTW = {
+  about: '關於',
+  issues: '反饋',
+  setting: '設置',
+  hotkeys: '快捷鍵',
+  donate: '讚賞',
+  debugHelper: {
+    viewVueDebugHelperObject: 'vueDebugHelper對象',
+    componentsStatistics: '當前存活組件統計',
+    destroyStatisticsSort: '已銷毀組件統計',
+    componentsSummaryStatisticsSort: '全部組件混合統計',
+    getDestroyByDuration: '組件存活時間信息',
+    clearAll: '清空統計信息',
+    dd: '數據注入（dd）',
+    undd: '取消數據注入（undd）',
+    ddPrompt: {
+      filter: '組件過濾器（如果為空，則對所有組件注入）',
+      count: '指定注入數據的重複次數（默認1024）'
+    }
+  }
+};
+
+const messages = {
+  'zh-CN': zhCN,
+  zh: zhCN,
+  'zh-HK': zhTW,
+  'zh-TW': zhTW,
+  'en-US': enUS,
+  en: enUS,
+};
+
+/*!
+ * @name         i18n.js
+ * @description  vue-debug-helper的国际化配置
+ * @version      0.0.1
+ * @author       xxxily
+ * @date         2022/04/26 14:56
+ * @github       https://github.com/xxxily
+ */
+
+const i18n = new I18n({
+  defaultLanguage: 'en',
+  /* 指定当前要是使用的语言环境，默认无需指定，会自动读取 */
+  // locale: 'zh-TW',
+  languages: messages
+});
+
 window.vueDebugHelper = {
   /* 存储全部未被销毁的组件对象 */
   components: {},
@@ -248,6 +501,9 @@ window.vueDebugHelper = {
     blockFilters: [],
 
     devtools: true,
+
+    /* 改写Vue.component */
+    hackVueComponent: false,
 
     /* 给组件注入空白数据的配置信息 */
     dd: {
@@ -545,68 +801,46 @@ const methods = {
 
   toggleDevtools () {
     helper.config.devtools = !helper.config.devtools;
+  },
+
+  /* 对Vue.component进行hack,以便观察什么时候进行了哪些全局组件的注册操作 */
+  hackVueComponent (callback) {
+    if (!helper.Vue || !(helper.Vue.component instanceof Function) || helper._vueComponentOrgin_) {
+      debug.log(i18n.t('debugHelper.hackVueComponent.hack') + ' (failed)');
+      return false
+    }
+
+    const vueComponentOrgin = helper.Vue.component;
+
+    helper.Vue.component = function (name, opts) {
+      if (callback instanceof Function) {
+        callback.apply(helper.Vue, arguments);
+      } else {
+        let repeatTips = '';
+        if (helper.Vue.options.components[name]) {
+          repeatTips = '[REPEAT]';
+        }
+        debug.log('[Vue.component]' + repeatTips, name, opts);
+      }
+
+      return vueComponentOrgin.apply(helper.Vue, arguments)
+    };
+
+    helper._vueComponentOrgin_ = vueComponentOrgin;
+    debug.log(i18n.t('debugHelper.hackVueComponent.hack') + ' (success)');
+    return true
+  },
+
+  unHackVueComponent () {
+    if (helper._vueComponentOrgin_ && helper.Vue) {
+      helper.Vue.component = helper._vueComponentOrgin_;
+      debug.log(i18n.t('debugHelper.hackVueComponent.unHack') + ' (success)');
+      return true
+    }
   }
 };
 
 helper.methods = methods;
-
-class Debug {
-  constructor (msg, printTime = false) {
-    const t = this;
-    msg = msg || 'debug message:';
-    t.log = t.createDebugMethod('log', null, msg);
-    t.error = t.createDebugMethod('error', null, msg);
-    t.info = t.createDebugMethod('info', null, msg);
-    t.warn = t.createDebugMethod('warn', null, msg);
-  }
-
-  create (msg) {
-    return new Debug(msg)
-  }
-
-  createDebugMethod (name, color, tipsMsg) {
-    name = name || 'info';
-
-    const bgColorMap = {
-      info: '#2274A5',
-      log: '#95B46A',
-      error: '#D33F49'
-    };
-
-    const printTime = this.printTime;
-
-    return function () {
-      if (!window._debugMode_) {
-        return false
-      }
-
-      const msg = tipsMsg || 'debug message:';
-
-      const arg = Array.from(arguments);
-      arg.unshift(`color: white; background-color: ${color || bgColorMap[name] || '#95B46A'}`);
-
-      if (printTime) {
-        const curTime = new Date();
-        const H = curTime.getHours();
-        const M = curTime.getMinutes();
-        const S = curTime.getSeconds();
-        arg.unshift(`%c [${H}:${M}:${S}] ${msg} `);
-      } else {
-        arg.unshift(`%c ${msg} `);
-      }
-
-      window.console[name].apply(window.console, arg);
-    }
-  }
-
-  isDebugMode () {
-    return Boolean(window._debugMode_)
-  }
-}
-
-var Debug$1 = new Debug();
-
-var debug = Debug$1.create('vueDebugHelper:');
 
 /**
  * 打印生命周期信息
@@ -649,6 +883,10 @@ function mixinRegister (Vue) {
     }
   } else {
     debug.log('Vue.config is not defined');
+  }
+
+  if (helper.config.hackVueComponent) {
+    helper.methods.hackVueComponent();
   }
 
   Vue.mixin({
@@ -820,196 +1058,6 @@ const monkeyMenu = {
   }
 };
 
-/**
- * 简单的i18n库
- */
-
-class I18n {
-  constructor (config) {
-    this._languages = {};
-    this._locale = this.getClientLang();
-    this._defaultLanguage = '';
-    this.init(config);
-  }
-
-  init (config) {
-    if (!config) return false
-
-    const t = this;
-    t._locale = config.locale || t._locale;
-    /* 指定当前要是使用的语言环境，默认无需指定，会自动读取 */
-    t._languages = config.languages || t._languages;
-    t._defaultLanguage = config.defaultLanguage || t._defaultLanguage;
-  }
-
-  use () {}
-
-  t (path) {
-    const t = this;
-    let result = t.getValByPath(t._languages[t._locale] || {}, path);
-
-    /* 版本回退 */
-    if (!result && t._locale !== t._defaultLanguage) {
-      result = t.getValByPath(t._languages[t._defaultLanguage] || {}, path);
-    }
-
-    return result || ''
-  }
-
-  /* 当前语言值 */
-  language () {
-    return this._locale
-  }
-
-  languages () {
-    return this._languages
-  }
-
-  changeLanguage (locale) {
-    if (this._languages[locale]) {
-      this._languages = locale;
-      return locale
-    } else {
-      return false
-    }
-  }
-
-  /**
-   * 根据文本路径获取对象里面的值
-   * @param obj {Object} -必选 要操作的对象
-   * @param path {String} -必选 路径信息
-   * @returns {*}
-   */
-  getValByPath (obj, path) {
-    path = path || '';
-    const pathArr = path.split('.');
-    let result = obj;
-
-    /* 递归提取结果值 */
-    for (let i = 0; i < pathArr.length; i++) {
-      if (!result) break
-      result = result[pathArr[i]];
-    }
-
-    return result
-  }
-
-  /* 获取客户端当前的语言环境 */
-  getClientLang () {
-    return navigator.languages ? navigator.languages[0] : navigator.language
-  }
-}
-
-var zhCN = {
-  about: '关于',
-  issues: '反馈',
-  setting: '设置',
-  hotkeys: '快捷键',
-  donate: '赞赏',
-  debugHelper: {
-    viewVueDebugHelperObject: 'vueDebugHelper对象',
-    componentsStatistics: '当前存活组件统计',
-    destroyStatisticsSort: '已销毁组件统计',
-    componentsSummaryStatisticsSort: '全部组件混合统计',
-    getDestroyByDuration: '组件存活时间信息',
-    clearAll: '清空统计信息',
-    printLifeCycleInfo: '打印组件生命周期信息',
-    notPrintLifeCycleInfo: '取消组件生命周期信息打印',
-    printLifeCycleInfoPrompt: {
-      lifecycleFilters: '输入要打印的生命周期名称，多个可用,或|分隔，不输入则默认打印created',
-      componentFilters: '输入要打印的组件名称，多个可用,或|分隔，不输入则默认打印所有组件'
-    },
-    findComponents: '查找组件',
-    findComponentsPrompt: {
-      filters: '输入要查找的组件名称，或uid，多个可用,或|分隔'
-    },
-    findNotContainElementComponents: '查找不包含DOM对象的组件',
-    blockComponents: '阻断组件的创建',
-    blockComponentsPrompt: {
-      filters: '输入要阻断的组件名称，多个可用,或|分隔，输入为空则取消阻断'
-    },
-    dd: '数据注入（dd）',
-    undd: '取消数据注入（undd）',
-    ddPrompt: {
-      filter: '组件过滤器（如果为空，则对所有组件注入）',
-      count: '指定注入数据的重复次数（默认1024）'
-    },
-    devtools: {
-      enabled: '自动开启vue-devtools',
-      disable: '禁止开启vue-devtools'
-    }
-  }
-};
-
-var enUS = {
-  about: 'about',
-  issues: 'feedback',
-  setting: 'settings',
-  hotkeys: 'Shortcut keys',
-  donate: 'donate',
-  debugHelper: {
-    viewVueDebugHelperObject: 'vueDebugHelper object',
-    componentsStatistics: 'Current surviving component statistics',
-    destroyStatisticsSort: 'Destroyed component statistics',
-    componentsSummaryStatisticsSort: 'All components mixed statistics',
-    getDestroyByDuration: 'Component survival time information',
-    clearAll: 'Clear statistics',
-    dd: 'Data injection (dd)',
-    undd: 'Cancel data injection (undd)',
-    ddPrompt: {
-      filter: 'Component filter (if empty, inject all components)',
-      count: 'Specify the number of repetitions of injected data (default 1024)'
-    }
-  }
-};
-
-var zhTW = {
-  about: '關於',
-  issues: '反饋',
-  setting: '設置',
-  hotkeys: '快捷鍵',
-  donate: '讚賞',
-  debugHelper: {
-    viewVueDebugHelperObject: 'vueDebugHelper對象',
-    componentsStatistics: '當前存活組件統計',
-    destroyStatisticsSort: '已銷毀組件統計',
-    componentsSummaryStatisticsSort: '全部組件混合統計',
-    getDestroyByDuration: '組件存活時間信息',
-    clearAll: '清空統計信息',
-    dd: '數據注入（dd）',
-    undd: '取消數據注入（undd）',
-    ddPrompt: {
-      filter: '組件過濾器（如果為空，則對所有組件注入）',
-      count: '指定注入數據的重複次數（默認1024）'
-    }
-  }
-};
-
-const messages = {
-  'zh-CN': zhCN,
-  zh: zhCN,
-  'zh-HK': zhTW,
-  'zh-TW': zhTW,
-  'en-US': enUS,
-  en: enUS,
-};
-
-/*!
- * @name         i18n.js
- * @description  vue-debug-helper的国际化配置
- * @version      0.0.1
- * @author       xxxily
- * @date         2022/04/26 14:56
- * @github       https://github.com/xxxily
- */
-
-const i18n = new I18n({
-  defaultLanguage: 'en',
-  /* 指定当前要是使用的语言环境，默认无需指定，会自动读取 */
-  // locale: 'zh-TW',
-  languages: messages
-});
-
 /*!
  * @name         functionCall.js
  * @description  统一的提供外部功能调用管理模块
@@ -1131,10 +1179,17 @@ const functionCall = {
       helper.methods.dd(filter, Number(count));
     }
   },
+
   undd () {
     debug.log(i18n.t('debugHelper.undd'));
     helper.methods.undd();
+  },
+
+  toggleHackVueComponent () {
+    helper.config.hackVueComponent ? helper.methods.unHackVueComponent() : helper.methods.hackVueComponent();
+    helper.config.hackVueComponent = !helper.config.hackVueComponent;
   }
+
 };
 
 /*!
@@ -2004,13 +2059,13 @@ function init (win) {
   registerStatus = 'initing';
 
   vueDetect(win, function (Vue) {
-    mixinRegister(Vue);
-    menuRegister(Vue);
-    hotKeyRegister();
-
     /* 挂载到window上，方便通过控制台调用调试 */
     helper.Vue = Vue;
     win.vueDebugHelper = helper;
+
+    mixinRegister(Vue);
+    menuRegister(Vue);
+    hotKeyRegister();
 
     debug.log('vue debug helper register success');
     registerStatus = 'success';

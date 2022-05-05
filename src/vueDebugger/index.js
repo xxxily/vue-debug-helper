@@ -31,13 +31,13 @@ function init (win) {
   registerStatus = 'initing'
 
   vueDetector(win, function (Vue) {
-    mixinRegister(Vue)
-    menuRegister(Vue)
-    hotKeyRegister(Vue)
-
     /* 挂载到window上，方便通过控制台调用调试 */
     helper.Vue = Vue
     win.vueDebugHelper = helper
+
+    mixinRegister(Vue)
+    menuRegister(Vue)
+    hotKeyRegister(Vue)
 
     debug.log('vue debug helper register success')
     registerStatus = 'success'

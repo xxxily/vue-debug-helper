@@ -44,6 +44,10 @@ function mixinRegister (Vue) {
     debug.log('Vue.config is not defined')
   }
 
+  if (helper.config.hackVueComponent) {
+    helper.methods.hackVueComponent()
+  }
+
   Vue.mixin({
     beforeCreate: function () {
       // const tag = this.$options?._componentTag || this.$vnode?.tag || this._uid

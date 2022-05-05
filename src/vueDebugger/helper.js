@@ -4,6 +4,8 @@ import {
   createEmptyData,
   toArrFilters
 } from './utils'
+import debug from './debug'
+import i18n from './i18n'
 
 window.vueDebugHelper = {
   /* 存储全部未被销毁的组件对象 */
@@ -32,6 +34,9 @@ window.vueDebugHelper = {
     blockFilters: [],
 
     devtools: true,
+
+    /* 改写Vue.component */
+    hackVueComponent: false,
 
     /* 给组件注入空白数据的配置信息 */
     dd: {
@@ -329,6 +334,42 @@ const methods = {
 
   toggleDevtools () {
     helper.config.devtools = !helper.config.devtools
+  },
+
+  /* 对Vue.component进行hack,以便观察什么时候进行了哪些全局组件的注册操作 */
+  hackVueComponent (callback) {
+    if (!helper.Vue || !(helper.Vue.component instanceof Function) || helper._vueComponentOrgin_) {
+      debug.log(i18n.t('debugHelper.hackVueComponent.hack') + ' (failed)')
+      return false
+    }
+
+    const vueComponentOrgin = helper.Vue.component
+
+    helper.Vue.component = function (name, opts) {
+      if (callback instanceof Function) {
+        callback.apply(helper.Vue, arguments)
+      } else {
+        let repeatTips = ''
+        if (helper.Vue.options.components[name]) {
+          repeatTips = '[REPEAT]'
+        }
+        debug.log('[Vue.component]' + repeatTips, name, opts)
+      }
+
+      return vueComponentOrgin.apply(helper.Vue, arguments)
+    }
+
+    helper._vueComponentOrgin_ = vueComponentOrgin
+    debug.log(i18n.t('debugHelper.hackVueComponent.hack') + ' (success)')
+    return true
+  },
+
+  unHackVueComponent () {
+    if (helper._vueComponentOrgin_ && helper.Vue) {
+      helper.Vue.component = helper._vueComponentOrgin_
+      debug.log(i18n.t('debugHelper.hackVueComponent.unHack') + ' (success)')
+      return true
+    }
   }
 }
 
