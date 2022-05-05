@@ -1023,6 +1023,7 @@ const functionCall = {
   },
   destroyStatisticsSort () {
     const result = helper.methods.destroyStatisticsSort();
+    let total = 0;
 
     /* 提供友好的可视化展示方式 */
     console.table && console.table(result.map(item => {
@@ -1030,6 +1031,7 @@ const functionCall = {
       const maxDuration = Math.max(...durationList);
       const minDuration = Math.min(...durationList);
       const durationRange = maxDuration - minDuration;
+      total += item.destroyList.length;
 
       return {
         componentName: item.componentName,
@@ -1042,7 +1044,7 @@ const functionCall = {
       }
     }));
 
-    debug.log(i18n.t('debugHelper.destroyStatisticsSort'), result);
+    debug.log(`${i18n.t('debugHelper.destroyStatisticsSort')} (total:${total})`, result);
   },
   componentsSummaryStatisticsSort () {
     const result = helper.methods.componentsSummaryStatisticsSort();
