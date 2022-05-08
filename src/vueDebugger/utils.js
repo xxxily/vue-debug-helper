@@ -62,4 +62,43 @@ function toArrFilters (filter) {
   return filter
 }
 
-export { objSort, createEmptyData, toArrFilters }
+/**
+ * 判断某个字符串是否跟filters相匹配
+ * @param {array|string} filters - 必选 字符串或数组，字符串支持使用 , |符号对多个项进行分隔
+ * @param {string|number} str - 必选 一个字符串或数字，用于跟过滤器进行匹配判断
+ */
+function filtersMatch (filters, str) {
+  if (!filters || !str) {
+    return false
+  }
+
+  filters = Array.isArray(filters) ? filters : toArrFilters(filters)
+  str = String(str)
+
+  let result = false
+  for (let i = 0; i < filters.length; i++) {
+    let filter = String(filters[i])
+
+    /* 带星表示进行模糊匹配，且不区分大小写 */
+    if (/\*/.test(filter)) {
+      filter = filter.replace(/\*/g, '').toLocaleLowerCase()
+      if (str.toLocaleLowerCase().indexOf(filter) > -1) {
+        result = true
+        break
+      }
+    } else if (filter.includes(str)) {
+      result = true
+      break
+    }
+  }
+
+  return result
+}
+
+const inBrowser = typeof window !== 'undefined'
+
+function getVueDevtools () {
+  return inBrowser && window.__VUE_DEVTOOLS_GLOBAL_HOOK__
+}
+
+export { objSort, createEmptyData, toArrFilters, filtersMatch, inBrowser, getVueDevtools }

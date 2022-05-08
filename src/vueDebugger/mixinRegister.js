@@ -1,5 +1,10 @@
 import helper from './helper'
 import debug from './debug'
+import hookJs from '../libs/hookJs'
+import {
+  getVueDevtools,
+  filtersMatch
+} from './utils'
 
 /**
  * 打印生命周期信息
@@ -35,6 +40,22 @@ function mixinRegister (Vue) {
       Vue.config.debug = true
       Vue.config.devtools = true
       Vue.config.performance = true
+
+      setTimeout(() => {
+        const devtools = getVueDevtools()
+        if (devtools) {
+          if (!devtools.enabled) {
+            devtools.emit('init', Vue)
+            debug.info('vue devtools init emit.')
+          }
+        } else {
+          // debug.info(
+          //   'Download the Vue Devtools extension for a better development experience:\n' +
+          //   'https://github.com/vuejs/vue-devtools'
+          // )
+          debug.info('vue devtools check failed.')
+        }
+      }, 200)
     } else {
       Vue.config.debug = false
       Vue.config.devtools = false
@@ -47,6 +68,18 @@ function mixinRegister (Vue) {
   if (helper.config.hackVueComponent) {
     helper.methods.hackVueComponent()
   }
+
+  /* 使用AOP对Vue.extend进行切面阻断组件的创建 */
+  hookJs.before(Vue, 'extend', (args, parentObj, methodName, originMethod, execInfo, ctx) => {
+    const extendOpts = args[0]
+    // debug.warn('extendOptions:', extendOpts.name || 'unknown')
+
+    const hasBlockFilter = helper.config.blockFilters && helper.config.blockFilters.length
+    if (hasBlockFilter && extendOpts.name && filtersMatch(helper.config.blockFilters, extendOpts.name)) {
+      debug.info(`[block component]: name: ${extendOpts.name}`)
+      return 'STOP-INVOKE'
+    }
+  })
 
   Vue.mixin({
     beforeCreate: function () {
@@ -94,15 +127,6 @@ function mixinRegister (Vue) {
         : (helper.componentsSummaryStatistics[this._componentName] = [componentSummary])
 
       printLifeCycle(this, 'beforeCreate')
-
-      /* 使用$destroy阻断组件的创建 */
-      if (helper.config.blockFilters && helper.config.blockFilters.length) {
-        if (helper.config.blockFilters.includes(this._componentName)) {
-          debug.log(`[block component]: name: ${this._componentName}, tag: ${this._componentTag}, uid: ${this._uid}`)
-          this.$destroy()
-          return false
-        }
-      }
     },
     created: function () {
       /* 增加空白数据，方便观察内存泄露情况 */

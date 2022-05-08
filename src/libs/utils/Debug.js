@@ -18,6 +18,7 @@ class Debug {
     const bgColorMap = {
       info: '#2274A5',
       log: '#95B46A',
+      warn: '#F5A623',
       error: '#D33F49'
     }
 

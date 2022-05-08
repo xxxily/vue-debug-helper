@@ -6,7 +6,7 @@
 // @name:ja      Vueデバッグ分析アシスタント
 // @namespace    https://github.com/xxxily/vue-debug-helper
 // @homepage     https://github.com/xxxily/vue-debug-helper
-// @version      0.0.8
+// @version      0.0.9
 // @description  Vue components debug helper
 // @description:en  Vue components debug helper
 // @description:zh  Vue组件探测、统计、分析辅助脚本

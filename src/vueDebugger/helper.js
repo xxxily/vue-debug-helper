@@ -188,11 +188,7 @@ const methods = {
     }
   },
   notPrintLifeCycleInfo () {
-    helper.config.lifecycle = {
-      show: false,
-      filters: ['created'],
-      componentFilters: []
-    }
+    helper.config.lifecycle.show = false
   },
 
   /**
@@ -349,11 +345,11 @@ const methods = {
       if (callback instanceof Function) {
         callback.apply(helper.Vue, arguments)
       } else {
-        let repeatTips = ''
         if (helper.Vue.options.components[name]) {
-          repeatTips = '[REPEAT]'
+          debug.warn(`[Vue.component][REPEAT][old-cid:${helper.Vue.options.components[name].cid}]`, name, opts)
+        } else {
+          debug.log('[Vue.component]', name, opts)
         }
-        debug.log('[Vue.component]' + repeatTips, name, opts)
       }
 
       return vueComponentOrgin.apply(helper.Vue, arguments)
@@ -367,7 +363,8 @@ const methods = {
   unHackVueComponent () {
     if (helper._vueComponentOrgin_ && helper.Vue) {
       helper.Vue.component = helper._vueComponentOrgin_
-      debug.log(i18n.t('debugHelper.hackVueComponent.unHack') + ' (success)')
+      delete helper._vueComponentOrgin_
+      debug.log(i18n.t('debugHelper.hackVueComponent.unhack') + ' (success)')
       return true
     }
   }
