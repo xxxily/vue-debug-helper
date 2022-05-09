@@ -70,13 +70,23 @@ function mixinRegister (Vue) {
   }
 
   /* 使用AOP对Vue.extend进行切面阻断组件的创建 */
-  hookJs.before(Vue, 'extend', (args, parentObj, methodName, originMethod, execInfo, ctx) => {
+  const hookJsPro = hookJs.hookJsPro()
+
+  hookJsPro.before(Vue, 'extend', (args, parentObj, methodName, originMethod, execInfo, ctx) => {
     const extendOpts = args[0]
     // debug.warn('extendOptions:', extendOpts.name || 'unknown')
 
     const hasBlockFilter = helper.config.blockFilters && helper.config.blockFilters.length
     if (hasBlockFilter && extendOpts.name && filtersMatch(helper.config.blockFilters, extendOpts.name)) {
       debug.info(`[block component]: name: ${extendOpts.name}`)
+      return 'STOP-INVOKE'
+    }
+  })
+
+  /* 禁止因为阻断组件的创建而导致的错误提示输出，减少不必要的信息噪音 */
+  hookJsPro.before(Vue.util, 'warn', (args) => {
+    const msg = args[0]
+    if (msg.includes('STOP-INVOKE')) {
       return 'STOP-INVOKE'
     }
   })
