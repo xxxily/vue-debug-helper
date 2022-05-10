@@ -10,6 +10,7 @@
 import helper from './helper'
 import debug from './debug'
 import i18n from './i18n'
+import vueHooks from './vueHooks'
 
 const functionCall = {
   viewVueDebugHelperObject () {
@@ -130,7 +131,7 @@ const functionCall = {
   },
 
   toggleHackVueComponent () {
-    helper.config.hackVueComponent ? helper.methods.unHackVueComponent() : helper.methods.hackVueComponent()
+    helper.config.hackVueComponent ? vueHooks.unHackVueComponent() : vueHooks.hackVueComponent()
     helper.config.hackVueComponent = !helper.config.hackVueComponent
   }
 

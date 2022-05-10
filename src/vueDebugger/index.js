@@ -5,6 +5,8 @@ import mixinRegister from './mixinRegister'
 import menuRegister from './menuRegister'
 import hotKeyRegister from './hotKeyRegister'
 import vueDetector from './vueDetector'
+import vueHooks from './vueHooks'
+import vueConfigInit from './vueConfig'
 
 import {
   isInIframe
@@ -34,6 +36,17 @@ function init (win) {
     /* 挂载到window上，方便通过控制台调用调试 */
     helper.Vue = Vue
     win.vueDebugHelper = helper
+
+    /* 注册阻断Vue组件的功能 */
+    vueHooks.blockComponents(Vue, helper.config)
+
+    /* 注册打印全局组件注册信息的功能 */
+    if (helper.config.hackVueComponent) {
+      vueHooks.hackVueComponent(Vue)
+    }
+
+    /* 对Vue相关配置进行初始化 */
+    vueConfigInit(Vue, helper.config)
 
     mixinRegister(Vue)
     menuRegister(Vue)

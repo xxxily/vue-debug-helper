@@ -1,10 +1,5 @@
 import helper from './helper'
 import debug from './debug'
-import hookJs from '../libs/hookJs'
-import {
-  getVueDevtools,
-  filtersMatch
-} from './utils'
 
 /**
  * 打印生命周期信息
@@ -33,63 +28,6 @@ function mixinRegister (Vue) {
     debug.error('未检查到VUE对象，请检查是否引入了VUE，且将VUE对象挂载到全局变量window.Vue上')
     return false
   }
-
-  /* 自动开启Vue的调试模式 */
-  if (Vue.config) {
-    if (helper.config.devtools) {
-      Vue.config.debug = true
-      Vue.config.devtools = true
-      Vue.config.performance = true
-
-      setTimeout(() => {
-        const devtools = getVueDevtools()
-        if (devtools) {
-          if (!devtools.enabled) {
-            devtools.emit('init', Vue)
-            debug.info('vue devtools init emit.')
-          }
-        } else {
-          // debug.info(
-          //   'Download the Vue Devtools extension for a better development experience:\n' +
-          //   'https://github.com/vuejs/vue-devtools'
-          // )
-          debug.info('vue devtools check failed.')
-        }
-      }, 200)
-    } else {
-      Vue.config.debug = false
-      Vue.config.devtools = false
-      Vue.config.performance = false
-    }
-  } else {
-    debug.log('Vue.config is not defined')
-  }
-
-  if (helper.config.hackVueComponent) {
-    helper.methods.hackVueComponent()
-  }
-
-  /* 使用AOP对Vue.extend进行切面阻断组件的创建 */
-  const hookJsPro = hookJs.hookJsPro()
-
-  hookJsPro.before(Vue, 'extend', (args, parentObj, methodName, originMethod, execInfo, ctx) => {
-    const extendOpts = args[0]
-    // debug.warn('extendOptions:', extendOpts.name || 'unknown')
-
-    const hasBlockFilter = helper.config.blockFilters && helper.config.blockFilters.length
-    if (hasBlockFilter && extendOpts.name && filtersMatch(helper.config.blockFilters, extendOpts.name)) {
-      debug.info(`[block component]: name: ${extendOpts.name}`)
-      return 'STOP-INVOKE'
-    }
-  })
-
-  /* 禁止因为阻断组件的创建而导致的错误提示输出，减少不必要的信息噪音 */
-  hookJsPro.before(Vue.util, 'warn', (args) => {
-    const msg = args[0]
-    if (msg.includes('STOP-INVOKE')) {
-      return 'STOP-INVOKE'
-    }
-  })
 
   Vue.mixin({
     beforeCreate: function () {

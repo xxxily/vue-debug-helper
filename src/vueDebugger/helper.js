@@ -330,43 +330,6 @@ const methods = {
 
   toggleDevtools () {
     helper.config.devtools = !helper.config.devtools
-  },
-
-  /* 对Vue.component进行hack,以便观察什么时候进行了哪些全局组件的注册操作 */
-  hackVueComponent (callback) {
-    if (!helper.Vue || !(helper.Vue.component instanceof Function) || helper._vueComponentOrgin_) {
-      debug.log(i18n.t('debugHelper.hackVueComponent.hack') + ' (failed)')
-      return false
-    }
-
-    const vueComponentOrgin = helper.Vue.component
-
-    helper.Vue.component = function (name, opts) {
-      if (callback instanceof Function) {
-        callback.apply(helper.Vue, arguments)
-      } else {
-        if (helper.Vue.options.components[name]) {
-          debug.warn(`[Vue.component][REPEAT][old-cid:${helper.Vue.options.components[name].cid}]`, name, opts)
-        } else {
-          debug.log('[Vue.component]', name, opts)
-        }
-      }
-
-      return vueComponentOrgin.apply(helper.Vue, arguments)
-    }
-
-    helper._vueComponentOrgin_ = vueComponentOrgin
-    debug.log(i18n.t('debugHelper.hackVueComponent.hack') + ' (success)')
-    return true
-  },
-
-  unHackVueComponent () {
-    if (helper._vueComponentOrgin_ && helper.Vue) {
-      helper.Vue.component = helper._vueComponentOrgin_
-      delete helper._vueComponentOrgin_
-      debug.log(i18n.t('debugHelper.hackVueComponent.unhack') + ' (success)')
-      return true
-    }
   }
 }
 
