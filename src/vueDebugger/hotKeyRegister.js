@@ -12,6 +12,7 @@ import hotkeys from '../libs/hotkeys'
 
 function hotKeyRegister () {
   const hotKeyMap = {
+    'shift+alt+i': functionCall.toggleInspect,
     'shift+alt+a,shift+alt+ctrl+a': functionCall.componentsSummaryStatisticsSort,
     'shift+alt+l': functionCall.componentsStatistics,
     'shift+alt+d': functionCall.destroyStatisticsSort,

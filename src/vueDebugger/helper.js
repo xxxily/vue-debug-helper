@@ -4,8 +4,6 @@ import {
   createEmptyData,
   toArrFilters
 } from './utils'
-import debug from './debug'
-import i18n from './i18n'
 
 window.vueDebugHelper = {
   /* 存储全部未被销毁的组件对象 */
@@ -20,6 +18,10 @@ window.vueDebugHelper = {
   destroyStatistics: {},
 
   config: {
+    inspect: {
+      enabled: false
+    },
+
     /* 是否在控制台打印组件生命周期的相关信息 */
     lifecycle: {
       show: false,

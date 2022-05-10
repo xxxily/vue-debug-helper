@@ -7,6 +7,7 @@ import hotKeyRegister from './hotKeyRegister'
 import vueDetector from './vueDetector'
 import vueHooks from './vueHooks'
 import vueConfigInit from './vueConfig'
+import inspect from './inspect'
 
 import {
   isInIframe
@@ -51,6 +52,8 @@ function init (win) {
     mixinRegister(Vue)
     menuRegister(Vue)
     hotKeyRegister(Vue)
+
+    inspect.init(Vue)
 
     debug.log('vue debug helper register success')
     registerStatus = 'success'

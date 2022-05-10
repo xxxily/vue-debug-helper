@@ -14,10 +14,16 @@ function printLifeCycle (vm, lifeCycle) {
     return false
   }
 
-  const { _componentTag, _componentName, _componentChain, _createdHumanTime, _uid } = vm
-  const info = `[${lifeCycle}] tag: ${_componentTag}, uid: ${_uid}, createdTime: ${_createdHumanTime}, chain: ${_componentChain}`
-  const matchComponentFilters = lifeCycleConf.componentFilters.length === 0 || lifeCycleConf.componentFilters.includes(_componentName)
+  const file = vm.options?.__file || vm.$options?.__file || ''
 
+  const { _componentTag, _componentName, _componentChain, _createdHumanTime, _uid } = vm
+  let info = `[${lifeCycle}] tag: ${_componentTag}, uid: ${_uid}, createdTime: ${_createdHumanTime}, chain: ${_componentChain}`
+
+  if (file) {
+    info += `, file: ${file}`
+  }
+
+  const matchComponentFilters = lifeCycleConf.componentFilters.length === 0 || lifeCycleConf.componentFilters.includes(_componentName)
   if (lifeCycleConf.filters.includes(lifeCycle) && matchComponentFilters) {
     debug.log(info)
   }

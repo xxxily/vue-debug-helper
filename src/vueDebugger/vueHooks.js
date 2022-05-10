@@ -22,7 +22,7 @@ const vueHooks = {
   blockComponents (Vue, config) {
     hookJsPro.before(Vue, 'extend', (args, parentObj, methodName, originMethod, execInfo, ctx) => {
       const extendOpts = args[0]
-      // debug.warn('extendOptions:', extendOpts.name || 'unknown')
+      // extendOpts.__file && debug.info(`[extendOptions:${extendOpts.name}]`, extendOpts.__file)
 
       const hasBlockFilter = config.blockFilters && config.blockFilters.length
       if (hasBlockFilter && extendOpts.name && filtersMatch(config.blockFilters, extendOpts.name)) {

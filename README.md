@@ -38,7 +38,8 @@ Vue组件探测、统计、分析辅助脚本，主要用于分析当前应用�
 * [https://github.com/xxxily/vue-debug-helper/blob/main/changeLog.md](https://github.com/xxxily/vue-debug-helper/blob/main/changeLog.md)
 
 ## TODO
-* 打点统计功能
+* 元素审查功能
+* 区间统计功能
 * 组件调用整体关系链输出
 * 停用watch和computed
 * 实现自定义快捷键

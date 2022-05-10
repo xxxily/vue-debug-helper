@@ -133,6 +133,11 @@ const functionCall = {
   toggleHackVueComponent () {
     helper.config.hackVueComponent ? vueHooks.unHackVueComponent() : vueHooks.hackVueComponent()
     helper.config.hackVueComponent = !helper.config.hackVueComponent
+  },
+
+  toggleInspect () {
+    helper.config.inspect.enabled = !helper.config.inspect.enabled
+    debug.log(`${i18n.t('debugHelper.toggleInspect')} success (${helper.config.inspect.enabled})`)
   }
 
 }

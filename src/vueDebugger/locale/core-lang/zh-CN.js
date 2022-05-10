@@ -37,6 +37,7 @@ export default {
       hack: '改写Vue.component',
       unhack: '还原Vue.component'
     },
+    toggleInspect: '切换Inspect',
     devtools: {
       enabled: '自动开启vue-devtools',
       disable: '禁止开启vue-devtools'
