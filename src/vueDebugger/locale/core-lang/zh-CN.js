@@ -38,6 +38,11 @@ export default {
       unhack: '还原Vue.component'
     },
     toggleInspect: '切换Inspect',
+    togglePerformanceObserver: '开启/关闭性能观察',
+    performanceObserverPrompt: {
+      entryTypes: '输入要观察的类型，多个类型可用,或|分隔，支持的类型有：element,navigation,resource,mark,measure,paint,longtask',
+      notSupport: '当前浏览器不支持性能观察'
+    },
     devtools: {
       enabled: '自动开启vue-devtools',
       disable: '禁止开启vue-devtools'

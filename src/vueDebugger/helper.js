@@ -22,6 +22,12 @@ window.vueDebugHelper = {
       enabled: false
     },
 
+    performanceObserver: {
+      enabled: false,
+      // https://runebook.dev/zh-CN/docs/dom/performanceentry/entrytype
+      entryTypes: ['element', 'navigation', 'resource', 'mark', 'measure', 'paint', 'longtask']
+    },
+
     /* 是否在控制台打印组件生命周期的相关信息 */
     lifecycle: {
       show: false,

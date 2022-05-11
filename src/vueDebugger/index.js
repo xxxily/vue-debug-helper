@@ -8,6 +8,7 @@ import vueDetector from './vueDetector'
 import vueHooks from './vueHooks'
 import vueConfigInit from './vueConfig'
 import inspect from './inspect'
+import performanceObserver from './performanceObserver'
 
 import {
   isInIframe
@@ -45,6 +46,9 @@ function init (win) {
     if (helper.config.hackVueComponent) {
       vueHooks.hackVueComponent(Vue)
     }
+
+    /* 注册性能观察的功能 */
+    performanceObserver.init()
 
     /* 对Vue相关配置进行初始化 */
     vueConfigInit(Vue, helper.config)

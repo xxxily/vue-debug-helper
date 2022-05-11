@@ -277,6 +277,12 @@ window.vueDebugHelper = {
       enabled: false
     },
 
+    performanceObserver: {
+      enabled: false,
+      // https://runebook.dev/zh-CN/docs/dom/performanceentry/entrytype
+      entryTypes: ['element', 'navigation', 'resource', 'mark', 'measure', 'paint', 'longtask']
+    },
+
     /* 是否在控制台打印组件生命周期的相关信息 */
     lifecycle: {
       show: false,
@@ -965,6 +971,11 @@ var zhCN = {
       unhack: '还原Vue.component'
     },
     toggleInspect: '切换Inspect',
+    togglePerformanceObserver: '开启/关闭性能观察',
+    performanceObserverPrompt: {
+      entryTypes: '输入要观察的类型，多个类型可用,或|分隔，支持的类型有：element,navigation,resource,mark,measure,paint,longtask',
+      notSupport: '当前浏览器不支持性能观察'
+    },
     devtools: {
       enabled: '自动开启vue-devtools',
       disable: '禁止开启vue-devtools'
@@ -1603,6 +1614,51 @@ const vueHooks = {
 };
 
 /*!
+ * @name         performanceObserver.js
+ * @description  进行性能监测结果的打印
+ * @version      0.0.1
+ * @author       xxxily
+ * @date         2022/05/11 10:39
+ * @github       https://github.com/xxxily
+ */
+
+const performanceObserver = {
+  observer: null,
+  init () {
+    if (typeof PerformanceObserver === 'undefined') {
+      debug.log(i18n.t('debugHelper.performanceObserver.notSupport'));
+      return false
+    }
+
+    if (performanceObserver.observer && performanceObserver.observer.disconnect) {
+      performanceObserver.observer.disconnect();
+    }
+
+    /* 不进行性能观察 */
+    if (!helper.config.performanceObserver.enabled) {
+      performanceObserver.observer = null;
+      return false
+    }
+
+    // https://developer.mozilla.org/zh-CN/docs/Web/API/PerformanceObserver/observe
+    performanceObserver.observer = new PerformanceObserver(function (list, observer) {
+      if (!helper.config.performanceObserver.enabled) {
+        return
+      }
+
+      const entries = list.getEntries();
+      for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
+        debug.log(`[performanceObserver ${entry.entryType}]`, entry);
+      }
+    });
+
+    // https://runebook.dev/zh-CN/docs/dom/performanceentry/entrytype
+    performanceObserver.observer.observe({ entryTypes: helper.config.performanceObserver.entryTypes });
+  }
+};
+
+/*!
  * @name         functionCall.js
  * @description  统一的提供外部功能调用管理模块
  * @version      0.0.1
@@ -1737,6 +1793,33 @@ const functionCall = {
   toggleInspect () {
     helper.config.inspect.enabled = !helper.config.inspect.enabled;
     debug.log(`${i18n.t('debugHelper.toggleInspect')} success (${helper.config.inspect.enabled})`);
+  },
+
+  togglePerformanceObserver () {
+    helper.config.performanceObserver.enabled = !helper.config.performanceObserver.enabled;
+
+    if (helper.config.performanceObserver.enabled) {
+      let entryTypes = window.prompt(i18n.t('debugHelper.performanceObserverPrompt.entryTypes'), helper.config.performanceObserver.entryTypes.join(','));
+      if (entryTypes) {
+        const entryTypesArr = toArrFilters(entryTypes);
+        const supportEntryTypes = ['element', 'navigation', 'resource', 'mark', 'measure', 'paint', 'longtask'];
+
+        /* 过滤出支持的entryTypes */
+        entryTypes = entryTypesArr.filter(item => supportEntryTypes.includes(item));
+
+        if (entryTypes.length !== entryTypesArr.length) {
+          debug.warn(`some entryTypes not support, only support: ${supportEntryTypes.join(',')}`);
+        }
+
+        helper.config.performanceObserver.entryTypes = entryTypes;
+
+        performanceObserver.init();
+      } else {
+        alert('entryTypes is empty');
+      }
+    }
+
+    debug.log(`${i18n.t('debugHelper.togglePerformanceObserver')} success (${helper.config.performanceObserver.enabled})`);
   }
 
 };
@@ -2731,6 +2814,9 @@ function init (win) {
     if (helper.config.hackVueComponent) {
       vueHooks.hackVueComponent(Vue);
     }
+
+    /* 注册性能观察的功能 */
+    performanceObserver.init();
 
     /* 对Vue相关配置进行初始化 */
     vueConfigInit(Vue, helper.config);

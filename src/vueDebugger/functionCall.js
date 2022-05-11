@@ -11,6 +11,10 @@ import helper from './helper'
 import debug from './debug'
 import i18n from './i18n'
 import vueHooks from './vueHooks'
+import performanceObserver from './performanceObserver'
+import {
+  toArrFilters
+} from './utils'
 
 const functionCall = {
   viewVueDebugHelperObject () {
@@ -138,6 +142,33 @@ const functionCall = {
   toggleInspect () {
     helper.config.inspect.enabled = !helper.config.inspect.enabled
     debug.log(`${i18n.t('debugHelper.toggleInspect')} success (${helper.config.inspect.enabled})`)
+  },
+
+  togglePerformanceObserver () {
+    helper.config.performanceObserver.enabled = !helper.config.performanceObserver.enabled
+
+    if (helper.config.performanceObserver.enabled) {
+      let entryTypes = window.prompt(i18n.t('debugHelper.performanceObserverPrompt.entryTypes'), helper.config.performanceObserver.entryTypes.join(','))
+      if (entryTypes) {
+        const entryTypesArr = toArrFilters(entryTypes)
+        const supportEntryTypes = ['element', 'navigation', 'resource', 'mark', 'measure', 'paint', 'longtask']
+
+        /* 过滤出支持的entryTypes */
+        entryTypes = entryTypesArr.filter(item => supportEntryTypes.includes(item))
+
+        if (entryTypes.length !== entryTypesArr.length) {
+          debug.warn(`some entryTypes not support, only support: ${supportEntryTypes.join(',')}`)
+        }
+
+        helper.config.performanceObserver.entryTypes = entryTypes
+
+        performanceObserver.init()
+      } else {
+        alert('entryTypes is empty')
+      }
+    }
+
+    debug.log(`${i18n.t('debugHelper.togglePerformanceObserver')} success (${helper.config.performanceObserver.enabled})`)
   }
 
 }
