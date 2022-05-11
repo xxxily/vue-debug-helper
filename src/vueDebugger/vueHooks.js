@@ -74,6 +74,10 @@ const vueHooks = {
     } else {
       debug.warn('[Vue.component] you have not hack vue component, not need to unhack')
     }
+  },
+
+  hackVueUpdate () {
+    //
   }
 }
 

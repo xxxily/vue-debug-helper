@@ -38,7 +38,7 @@ const performanceObserver = {
       const entries = list.getEntries()
       for (let i = 0; i < entries.length; i++) {
         const entry = entries[i]
-        debug.log(`[performanceObserver ${entry.entryType}]`, entry)
+        debug.info(`[performanceObserver ${entry.entryType}]`, entry)
       }
     })
 
