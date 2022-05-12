@@ -2,7 +2,9 @@ import localStorageProxy from 'local-storage-proxy'
 import {
   objSort,
   createEmptyData,
-  toArrFilters
+  toArrFilters,
+  stringMatch,
+  filtersMatch
 } from './utils'
 
 window.vueDebugHelper = {
@@ -240,7 +242,7 @@ const methods = {
         } else if (typeof filter === 'string') {
           const { _componentTag, _componentName } = component
 
-          if (String(_componentTag).includes(filter) || String(_componentName).includes(filter)) {
+          if (stringMatch(filter, _componentTag) || stringMatch(filter, _componentName)) {
             result.components.push(component)
             break
           }
@@ -254,14 +256,10 @@ const methods = {
       const key = String(globalComponentsKeys[i])
       const component = helper.Vue.options.components[globalComponentsKeys[i]]
 
-      for (let j = 0; j < filters.length; j++) {
-        const filter = filters[j]
-        if (key.includes(filter)) {
-          const tmpObj = {}
-          tmpObj[key] = component
-          result.globalComponents.push(tmpObj)
-          break
-        }
+      if (filtersMatch(filters, key)) {
+        const tmpObj = {}
+        tmpObj[key] = component
+        result.globalComponents.push(tmpObj)
       }
     }
 
@@ -273,7 +271,7 @@ const methods = {
           result.destroyedComponents.push(item)
           break
         } else if (typeof filter === 'string') {
-          if (String(item.tag).includes(filter) || String(item.name).includes(filter)) {
+          if (stringMatch(filter, item.tag) || stringMatch(filter, item.name)) {
             result.destroyedComponents.push(item)
             break
           }

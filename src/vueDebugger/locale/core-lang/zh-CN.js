@@ -15,11 +15,11 @@ export default {
     notPrintLifeCycleInfo: '取消组件生命周期信息打印',
     printLifeCycleInfoPrompt: {
       lifecycleFilters: '输入要打印的生命周期名称，多个可用,或|分隔，支持的值：beforeCreate|created|beforeMount|mounted|beforeUpdate|updated|activated|deactivated|beforeDestroy|destroyed',
-      componentFilters: '输入要打印的组件名称，多个可用,或|分隔，不输入则默认打印所有组件'
+      componentFilters: '输入要打印的组件名称，多个可用,或|分隔，不输入则打印所有组件，字符串后面加*可执行模糊匹配'
     },
     findComponents: '查找组件',
     findComponentsPrompt: {
-      filters: '输入要查找的组件名称，或uid，多个可用,或|分隔'
+      filters: '输入要查找的组件名称，或uid，多个可用,或|分隔，字符串后面加*可执行模糊匹配'
     },
     findNotContainElementComponents: '查找不包含DOM对象的组件',
     blockComponents: '阻断组件的创建',

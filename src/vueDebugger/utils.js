@@ -63,6 +63,35 @@ function toArrFilters (filter) {
 }
 
 /**
+ * 字符串过滤器和字符串的匹配方法
+ * @param {string} filter -必选 过滤器的字符串
+ * @param {string} str -必选 要跟过滤字符串进行匹配的字符串
+ * @returns
+ */
+function stringMatch (filter, str) {
+  let isMatch = false
+
+  if (!filter || !str) {
+    return isMatch
+  }
+
+  filter = String(filter)
+  str = String(str)
+
+  /* 带星表示进行模糊匹配，且不区分大小写 */
+  if (/\*/.test(filter)) {
+    filter = filter.replace(/\*/g, '').toLocaleLowerCase()
+    if (str.toLocaleLowerCase().indexOf(filter) > -1) {
+      isMatch = true
+    }
+  } else if (str.includes(filter)) {
+    isMatch = true
+  }
+
+  return isMatch
+}
+
+/**
  * 判断某个字符串是否跟filters相匹配
  * @param {array|string} filters - 必选 字符串或数组，字符串支持使用 , |符号对多个项进行分隔
  * @param {string|number} str - 必选 一个字符串或数字，用于跟过滤器进行匹配判断
@@ -77,16 +106,9 @@ function filtersMatch (filters, str) {
 
   let result = false
   for (let i = 0; i < filters.length; i++) {
-    let filter = String(filters[i])
+    const filter = String(filters[i])
 
-    /* 带星表示进行模糊匹配，且不区分大小写 */
-    if (/\*/.test(filter)) {
-      filter = filter.replace(/\*/g, '').toLocaleLowerCase()
-      if (str.toLocaleLowerCase().indexOf(filter) > -1) {
-        result = true
-        break
-      }
-    } else if (filter.includes(str)) {
+    if (stringMatch(filter, str)) {
       result = true
       break
     }
@@ -101,4 +123,4 @@ function getVueDevtools () {
   return inBrowser && window.__VUE_DEVTOOLS_GLOBAL_HOOK__
 }
 
-export { objSort, createEmptyData, toArrFilters, filtersMatch, inBrowser, getVueDevtools }
+export { objSort, createEmptyData, toArrFilters, stringMatch, filtersMatch, inBrowser, getVueDevtools }

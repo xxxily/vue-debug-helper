@@ -1,5 +1,8 @@
 import helper from './helper'
 import debug from './debug'
+import {
+  filtersMatch
+} from './utils'
 
 /**
  * 打印生命周期信息
@@ -23,7 +26,7 @@ function printLifeCycle (vm, lifeCycle) {
     info += `, file: ${file}`
   }
 
-  const matchComponentFilters = lifeCycleConf.componentFilters.length === 0 || lifeCycleConf.componentFilters.includes(_componentName)
+  const matchComponentFilters = lifeCycleConf.componentFilters.length === 0 || filtersMatch(lifeCycleConf.componentFilters, _componentName)
   if (lifeCycleConf.filters.includes(lifeCycle) && matchComponentFilters) {
     debug.log(info)
   }

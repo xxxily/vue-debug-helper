@@ -6,7 +6,7 @@
 // @name:ja      Vueデバッグ分析アシスタント
 // @namespace    https://github.com/xxxily/vue-debug-helper
 // @homepage     https://github.com/xxxily/vue-debug-helper
-// @version      0.0.11
+// @version      0.0.12
 // @description  Vue components debug helper
 // @description:en  Vue components debug helper
 // @description:zh  Vue组件探测、统计、分析辅助脚本
@@ -222,6 +222,35 @@ function toArrFilters (filter) {
 }
 
 /**
+ * 字符串过滤器和字符串的匹配方法
+ * @param {string} filter -必选 过滤器的字符串
+ * @param {string} str -必选 要跟过滤字符串进行匹配的字符串
+ * @returns
+ */
+function stringMatch (filter, str) {
+  let isMatch = false;
+
+  if (!filter || !str) {
+    return isMatch
+  }
+
+  filter = String(filter);
+  str = String(str);
+
+  /* 带星表示进行模糊匹配，且不区分大小写 */
+  if (/\*/.test(filter)) {
+    filter = filter.replace(/\*/g, '').toLocaleLowerCase();
+    if (str.toLocaleLowerCase().indexOf(filter) > -1) {
+      isMatch = true;
+    }
+  } else if (str.includes(filter)) {
+    isMatch = true;
+  }
+
+  return isMatch
+}
+
+/**
  * 判断某个字符串是否跟filters相匹配
  * @param {array|string} filters - 必选 字符串或数组，字符串支持使用 , |符号对多个项进行分隔
  * @param {string|number} str - 必选 一个字符串或数字，用于跟过滤器进行匹配判断
@@ -236,16 +265,9 @@ function filtersMatch (filters, str) {
 
   let result = false;
   for (let i = 0; i < filters.length; i++) {
-    let filter = String(filters[i]);
+    const filter = String(filters[i]);
 
-    /* 带星表示进行模糊匹配，且不区分大小写 */
-    if (/\*/.test(filter)) {
-      filter = filter.replace(/\*/g, '').toLocaleLowerCase();
-      if (str.toLocaleLowerCase().indexOf(filter) > -1) {
-        result = true;
-        break
-      }
-    } else if (filter.includes(str)) {
+    if (stringMatch(filter, str)) {
       result = true;
       break
     }
@@ -495,7 +517,7 @@ const methods = {
         } else if (typeof filter === 'string') {
           const { _componentTag, _componentName } = component;
 
-          if (String(_componentTag).includes(filter) || String(_componentName).includes(filter)) {
+          if (stringMatch(filter, _componentTag) || stringMatch(filter, _componentName)) {
             result.components.push(component);
             break
           }
@@ -509,14 +531,10 @@ const methods = {
       const key = String(globalComponentsKeys[i]);
       const component = helper.Vue.options.components[globalComponentsKeys[i]];
 
-      for (let j = 0; j < filters.length; j++) {
-        const filter = filters[j];
-        if (key.includes(filter)) {
-          const tmpObj = {};
-          tmpObj[key] = component;
-          result.globalComponents.push(tmpObj);
-          break
-        }
+      if (filtersMatch(filters, key)) {
+        const tmpObj = {};
+        tmpObj[key] = component;
+        result.globalComponents.push(tmpObj);
       }
     }
 
@@ -528,7 +546,7 @@ const methods = {
           result.destroyedComponents.push(item);
           break
         } else if (typeof filter === 'string') {
-          if (String(item.tag).includes(filter) || String(item.name).includes(filter)) {
+          if (stringMatch(filter, item.tag) || stringMatch(filter, item.name)) {
             result.destroyedComponents.push(item);
             break
           }
@@ -679,7 +697,7 @@ function printLifeCycle (vm, lifeCycle) {
     info += `, file: ${file}`;
   }
 
-  const matchComponentFilters = lifeCycleConf.componentFilters.length === 0 || lifeCycleConf.componentFilters.includes(_componentName);
+  const matchComponentFilters = lifeCycleConf.componentFilters.length === 0 || filtersMatch(lifeCycleConf.componentFilters, _componentName);
   if (lifeCycleConf.filters.includes(lifeCycle) && matchComponentFilters) {
     debug.log(info);
   }
@@ -948,11 +966,11 @@ var zhCN = {
     notPrintLifeCycleInfo: '取消组件生命周期信息打印',
     printLifeCycleInfoPrompt: {
       lifecycleFilters: '输入要打印的生命周期名称，多个可用,或|分隔，支持的值：beforeCreate|created|beforeMount|mounted|beforeUpdate|updated|activated|deactivated|beforeDestroy|destroyed',
-      componentFilters: '输入要打印的组件名称，多个可用,或|分隔，不输入则默认打印所有组件'
+      componentFilters: '输入要打印的组件名称，多个可用,或|分隔，不输入则打印所有组件，字符串后面加*可执行模糊匹配'
     },
     findComponents: '查找组件',
     findComponentsPrompt: {
-      filters: '输入要查找的组件名称，或uid，多个可用,或|分隔'
+      filters: '输入要查找的组件名称，或uid，多个可用,或|分隔，字符串后面加*可执行模糊匹配'
     },
     findNotContainElementComponents: '查找不包含DOM对象的组件',
     blockComponents: '阻断组件的创建',
