@@ -43,6 +43,15 @@ export default {
       entryTypes: '输入要观察的类型，多个类型可用,或|分隔，支持的类型有：element,navigation,resource,mark,measure,paint,longtask',
       notSupport: '当前浏览器不支持性能观察'
     },
+    enableAjaxCacheTips: '接口缓存功能已开启',
+    disableAjaxCacheTips: '接口缓存功能已关闭',
+    toggleAjaxCache: '开启/关闭接口缓存',
+    clearAjaxCache: '清空接口缓存数据',
+    clearAjaxCacheTips: '接口缓存数据已清空',
+    jaxCachePrompt: {
+      filters: '输入要缓存的接口地址，多个可用,或|分隔，字符串后面加*可执行模糊匹配',
+      expires: '输入缓存过期时间，单位为分钟，默认为1440分钟（即24小时）'
+    },
     devtools: {
       enabled: '自动开启vue-devtools',
       disable: '禁止开启vue-devtools'

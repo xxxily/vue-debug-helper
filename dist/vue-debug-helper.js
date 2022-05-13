@@ -6,7 +6,7 @@
 // @name:ja      Vueデバッグ分析アシスタント
 // @namespace    https://github.com/xxxily/vue-debug-helper
 // @homepage     https://github.com/xxxily/vue-debug-helper
-// @version      0.0.12
+// @version      0.0.13
 // @description  Vue components debug helper
 // @description:en  Vue components debug helper
 // @description:zh  Vue组件探测、统计、分析辅助脚本
@@ -32,6 +32,9 @@
 // @grant        GM_openInTab
 // @grant        GM_download
 // @grant        GM_xmlhttpRequest
+// @require      https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js
+// @require      https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/core.js
+// @require      https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/md5.js
 // @run-at       document-start
 // @connect      127.0.0.1
 // @license      GPL
@@ -303,6 +306,15 @@ window.vueDebugHelper = {
       enabled: false,
       // https://runebook.dev/zh-CN/docs/dom/performanceentry/entrytype
       entryTypes: ['element', 'navigation', 'resource', 'mark', 'measure', 'paint', 'longtask']
+    },
+
+    /* 控制接口缓存 */
+    ajaxCache: {
+      enabled: false,
+      filters: ['*'],
+
+      /* 设置缓存多久失效，默认为1天 */
+      expires: 1000 * 60 * 60 * 24
     },
 
     /* 是否在控制台打印组件生命周期的相关信息 */
@@ -994,6 +1006,15 @@ var zhCN = {
       entryTypes: '输入要观察的类型，多个类型可用,或|分隔，支持的类型有：element,navigation,resource,mark,measure,paint,longtask',
       notSupport: '当前浏览器不支持性能观察'
     },
+    enableAjaxCacheTips: '接口缓存功能已开启',
+    disableAjaxCacheTips: '接口缓存功能已关闭',
+    toggleAjaxCache: '开启/关闭接口缓存',
+    clearAjaxCache: '清空接口缓存数据',
+    clearAjaxCacheTips: '接口缓存数据已清空',
+    jaxCachePrompt: {
+      filters: '输入要缓存的接口地址，多个可用,或|分隔，字符串后面加*可执行模糊匹配',
+      expires: '输入缓存过期时间，单位为分钟，默认为1440分钟（即24小时）'
+    },
     devtools: {
       enabled: '自动开启vue-devtools',
       disable: '禁止开启vue-devtools'
@@ -1635,6 +1656,646 @@ const vueHooks = {
   }
 };
 
+/*
+ * author: wendux
+ * email: 824783146@qq.com
+ * source code: https://github.com/wendux/Ajax-hook
+ */
+
+// Save original XMLHttpRequest as _rxhr
+var realXhr = '_rxhr';
+
+var events = ['load', 'loadend', 'timeout', 'error', 'readystatechange', 'abort'];
+
+function configEvent (event, xhrProxy) {
+  var e = {};
+  for (var attr in event) e[attr] = event[attr];
+  // xhrProxy instead
+  e.target = e.currentTarget = xhrProxy;
+  return e
+}
+
+function hook (proxy, win) {
+  win = win || window;
+  // Avoid double hookAjax
+  win[realXhr] = win[realXhr] || win.XMLHttpRequest;
+
+  win.XMLHttpRequest = function () {
+    // We shouldn't hookAjax XMLHttpRequest.prototype because we can't
+    // guarantee that all attributes are on the prototype。
+    // Instead, hooking XMLHttpRequest instance can avoid this problem.
+
+    var xhr = new win[realXhr]();
+
+    // Generate all callbacks(eg. onload) are enumerable (not undefined).
+    for (var i = 0; i < events.length; ++i) {
+      if (xhr[events[i]] === undefined) xhr[events[i]] = null;
+    }
+
+    for (var attr in xhr) {
+      var type = '';
+      try {
+        type = typeof xhr[attr]; // May cause exception on some browser
+      } catch (e) {
+      }
+      if (type === 'function') {
+        // hookAjax methods of xhr, such as `open`、`send` ...
+        this[attr] = hookFunction(attr);
+      } else {
+        Object.defineProperty(this, attr, {
+          get: getterFactory(attr),
+          set: setterFactory(attr),
+          enumerable: true
+        });
+      }
+    }
+    var that = this;
+    xhr.getProxy = function () {
+      return that
+    };
+    this.xhr = xhr;
+  };
+
+  Object.assign(win.XMLHttpRequest, { UNSENT: 0, OPENED: 1, HEADERS_RECEIVED: 2, LOADING: 3, DONE: 4 });
+
+  // Generate getter for attributes of xhr
+  function getterFactory (attr) {
+    return function () {
+      var v = this.hasOwnProperty(attr + '_') ? this[attr + '_'] : this.xhr[attr];
+      var attrGetterHook = (proxy[attr] || {}).getter;
+      return attrGetterHook && attrGetterHook(v, this) || v
+    }
+  }
+
+  // Generate setter for attributes of xhr; by this we have an opportunity
+  // to hookAjax event callbacks （eg: `onload`） of xhr;
+  function setterFactory (attr) {
+    return function (v) {
+      var xhr = this.xhr;
+      var that = this;
+      var hook = proxy[attr];
+      // hookAjax  event callbacks such as `onload`、`onreadystatechange`...
+      if (attr.substring(0, 2) === 'on') {
+        that[attr + '_'] = v;
+        xhr[attr] = function (e) {
+          e = configEvent(e, that);
+          var ret = proxy[attr] && proxy[attr].call(that, xhr, e);
+          ret || v.call(that, e);
+        };
+      } else {
+        // If the attribute isn't writable, generate proxy attribute
+        var attrSetterHook = (hook || {}).setter;
+        v = attrSetterHook && attrSetterHook(v, that) || v;
+        this[attr + '_'] = v;
+        try {
+          // Not all attributes of xhr are writable(setter may undefined).
+          xhr[attr] = v;
+        } catch (e) {
+        }
+      }
+    }
+  }
+
+  // Hook methods of xhr.
+  function hookFunction (fun) {
+    return function () {
+      var args = [].slice.call(arguments);
+      if (proxy[fun]) {
+        var ret = proxy[fun].call(this, args, this.xhr);
+        // If the proxy return value exists, return it directly,
+        // otherwise call the function of xhr.
+        if (ret) return ret
+      }
+      return this.xhr[fun].apply(this.xhr, args)
+    }
+  }
+
+  // Return the real XMLHttpRequest
+  return win[realXhr]
+}
+
+function unHook (win) {
+  win = win || window;
+  if (win[realXhr]) win.XMLHttpRequest = win[realXhr];
+  win[realXhr] = undefined;
+}
+
+/*
+ * author: wendux
+ * email: 824783146@qq.com
+ * source code: https://github.com/wendux/Ajax-hook
+ */
+
+var eventLoad = events[0];
+var eventLoadEnd = events[1];
+var eventTimeout = events[2];
+var eventError = events[3];
+var eventReadyStateChange = events[4];
+var eventAbort = events[5];
+
+var singleton;
+var prototype = 'prototype';
+
+function proxy (proxy, win) {
+  if (singleton) {
+    throw new Error('Proxy already exists')
+  }
+
+  singleton = new Proxy$1(proxy, win);
+  return singleton
+}
+
+function unProxy (win) {
+  singleton = null;
+  unHook(win);
+}
+
+function trim (str) {
+  return str.replace(/^\s+|\s+$/g, '')
+}
+
+function getEventTarget (xhr) {
+  return xhr.watcher || (xhr.watcher = document.createElement('a'))
+}
+
+function triggerListener (xhr, name) {
+  var xhrProxy = xhr.getProxy();
+  var callback = 'on' + name + '_';
+  var event = configEvent({ type: name }, xhrProxy);
+  xhrProxy[callback] && xhrProxy[callback](event);
+  var evt;
+  if (typeof (Event) === 'function') {
+    evt = new Event(name, { bubbles: false });
+  } else {
+    // https://stackoverflow.com/questions/27176983/dispatchevent-not-working-in-ie11
+    evt = document.createEvent('Event');
+    evt.initEvent(name, false, true);
+  }
+  getEventTarget(xhr).dispatchEvent(evt);
+}
+
+function Handler (xhr) {
+  this.xhr = xhr;
+  this.xhrProxy = xhr.getProxy();
+}
+
+Handler[prototype] = Object.create({
+  resolve: function resolve (response) {
+    var xhrProxy = this.xhrProxy;
+    var xhr = this.xhr;
+    xhrProxy.readyState = 4;
+    xhr.resHeader = response.headers;
+    xhrProxy.response = xhrProxy.responseText = response.response;
+    xhrProxy.statusText = response.statusText;
+    xhrProxy.status = response.status;
+    triggerListener(xhr, eventReadyStateChange);
+    triggerListener(xhr, eventLoad);
+    triggerListener(xhr, eventLoadEnd);
+  },
+  reject: function reject (error) {
+    this.xhrProxy.status = 0;
+    triggerListener(this.xhr, error.type);
+    triggerListener(this.xhr, eventLoadEnd);
+  }
+});
+
+function makeHandler (next) {
+  function sub (xhr) {
+    Handler.call(this, xhr);
+  }
+
+  sub[prototype] = Object.create(Handler[prototype]);
+  sub[prototype].next = next;
+  return sub
+}
+
+var RequestHandler = makeHandler(function (rq) {
+  var xhr = this.xhr;
+  rq = rq || xhr.config;
+  xhr.withCredentials = rq.withCredentials;
+  xhr.open(rq.method, rq.url, rq.async !== false, rq.user, rq.password);
+  for (var key in rq.headers) {
+    xhr.setRequestHeader(key, rq.headers[key]);
+  }
+  xhr.send(rq.body);
+});
+
+var ResponseHandler = makeHandler(function (response) {
+  this.resolve(response);
+});
+
+var ErrorHandler = makeHandler(function (error) {
+  this.reject(error);
+});
+
+function Proxy$1 (proxy, win) {
+  var onRequest = proxy.onRequest;
+  var onResponse = proxy.onResponse;
+  var onError = proxy.onError;
+
+  function handleResponse (xhr, xhrProxy) {
+    var handler = new ResponseHandler(xhr);
+    var ret = {
+      response: xhrProxy.response,
+      status: xhrProxy.status,
+      statusText: xhrProxy.statusText,
+      config: xhr.config,
+      headers: xhr.resHeader || xhr.getAllResponseHeaders().split('\r\n').reduce(function (ob, str) {
+        if (str === '') return ob
+        var m = str.split(':');
+        ob[m.shift()] = trim(m.join(':'));
+        return ob
+      }, {})
+    };
+    if (!onResponse) return handler.resolve(ret)
+    onResponse(ret, handler);
+  }
+
+  function onerror (xhr, xhrProxy, error, errorType) {
+    var handler = new ErrorHandler(xhr);
+    error = { config: xhr.config, error: error, type: errorType };
+    if (onError) {
+      onError(error, handler);
+    } else {
+      handler.next(error);
+    }
+  }
+
+  function preventXhrProxyCallback () {
+    return true
+  }
+
+  function errorCallback (errorType) {
+    return function (xhr, e) {
+      onerror(xhr, this, e, errorType);
+      return true
+    }
+  }
+
+  function stateChangeCallback (xhr, xhrProxy) {
+    if (xhr.readyState === 4 && xhr.status !== 0) {
+      handleResponse(xhr, xhrProxy);
+    } else if (xhr.readyState !== 4) {
+      triggerListener(xhr, eventReadyStateChange);
+    }
+    return true
+  }
+
+  return hook({
+    onload: preventXhrProxyCallback,
+    onloadend: preventXhrProxyCallback,
+    onerror: errorCallback(eventError),
+    ontimeout: errorCallback(eventTimeout),
+    onabort: errorCallback(eventAbort),
+    onreadystatechange: function (xhr) {
+      return stateChangeCallback(xhr, this)
+    },
+    open: function open (args, xhr) {
+      var _this = this;
+      var config = xhr.config = { headers: {} };
+      config.method = args[0];
+      config.url = args[1];
+      config.async = args[2];
+      config.user = args[3];
+      config.password = args[4];
+      config.xhr = xhr;
+      var evName = 'on' + eventReadyStateChange;
+      if (!xhr[evName]) {
+        xhr[evName] = function () {
+          return stateChangeCallback(xhr, _this)
+        };
+      }
+
+      // 如果有请求拦截器，则在调用onRequest后再打开链接。因为onRequest最佳调用时机是在send前，
+      // 所以我们在send拦截函数中再手动调用open，因此返回true阻止xhr.open调用。
+      //
+      // 如果没有请求拦截器，则不用阻断xhr.open调用
+      if (onRequest) return true
+    },
+    send: function (args, xhr) {
+      var config = xhr.config;
+      config.withCredentials = xhr.withCredentials;
+      config.body = args[0];
+      if (onRequest) {
+        // In 'onRequest', we may call XHR's event handler, such as `xhr.onload`.
+        // However, XHR's event handler may not be set until xhr.send is called in
+        // the user's code, so we use `setTimeout` to avoid this situation
+        var req = function () {
+          onRequest(config, new RequestHandler(xhr));
+        };
+        config.async === false ? req() : setTimeout(req);
+        return true
+      }
+    },
+    setRequestHeader: function (args, xhr) {
+      // Collect request headers
+      xhr.config.headers[args[0].toLowerCase()] = args[1];
+      return true
+    },
+    addEventListener: function (args, xhr) {
+      var _this = this;
+      if (events.indexOf(args[0]) !== -1) {
+        var handler = args[1];
+        getEventTarget(xhr).addEventListener(args[0], function (e) {
+          var event = configEvent(e, _this);
+          event.type = args[0];
+          event.isTrusted = true;
+          handler.call(_this, event);
+        });
+        return true
+      }
+    },
+    getAllResponseHeaders: function (_, xhr) {
+      var headers = xhr.resHeader;
+      if (headers) {
+        var header = '';
+        for (var key in headers) {
+          header += key + ': ' + headers[key] + '\r\n';
+        }
+        return header
+      }
+    },
+    getResponseHeader: function (args, xhr) {
+      var headers = xhr.resHeader;
+      if (headers) {
+        return headers[(args[0] || '').toLowerCase()]
+      }
+    }
+  }, win)
+}
+
+/*!
+ * @name         cacheStore.js
+ * @description  接口请求缓存存储管理模块
+ * @version      0.0.1
+ * @author       xxxily
+ * @date         2022/05/13 09:36
+ * @github       https://github.com/xxxily
+ */
+const localforage = window.localforage;
+const CryptoJS = window.CryptoJS;
+
+function md5 (str) {
+  return CryptoJS.MD5(str).toString()
+}
+
+function createHash (config) {
+  if (config._hash_) {
+    return config._hash_
+  }
+
+  let url = config.url || '';
+
+  /**
+   * 如果检测到url使用了时间戳来防止缓存，则进行替换，进行缓存
+   * TODO
+   * 注意，这很可能会导致误伤，例如url上的时间戳并不是用来清理缓存的，而是某个时间点的参数
+   */
+  if (/=\d{13}/.test(url)) {
+    url = url.replace(/=\d{13}/, '=cache');
+  }
+
+  const hash = md5(url);
+  config._hash_ = hash;
+
+  return hash
+}
+
+class CacheStore {
+  constructor (opts = {
+    localforageConfig: {}
+  }) {
+    this.store = localforage.createInstance(Object.assign({
+      name: 'vue-debug-helper-cache',
+      storeName: 'ajax-cache'
+    }, opts.localforageConfig));
+
+    /* 外部应该使用同样的hash生成方法，否则无法正常命中缓存规则 */
+    this.createHash = createHash;
+  }
+
+  async getCache (config) {
+    const hash = createHash(config);
+    const data = await this.store.getItem(hash);
+    return data
+  }
+
+  async setCache (response, filter) {
+    const headers = response.headers || {};
+    if (String(headers['content-type']).includes(filter || 'application/json')) {
+      const hash = createHash(response.config);
+      await this.store.setItem(hash, response.response);
+
+      /* 设置缓存的时候顺便更新缓存相关的基础信息，注意，该信息并不能100%被同步到本地 */
+      await this.updateCacheInfo(response.config);
+
+      debug.log(`[cacheStore setCache] ${response.config.url}`);
+    }
+  }
+
+  async getCacheInfo (config) {
+    const hash = config ? this.createHash(config) : '';
+    if (this._cacheInfo_) {
+      return hash ? this._cacheInfo_[hash] : this._cacheInfo_
+    }
+
+    /* 在没将cacheInfo加载到内存前，只能单线程获取cacheInfo，防止多线程获取cacheInfo时出现问题 */
+    if (this._takeingCacheInfo_) {
+      const getCacheInfoHanderList = this._getCacheInfoHanderList_ || [];
+      const P = new Promise((resolve, reject) => {
+        getCacheInfoHanderList.push({
+          resolve,
+          config
+        });
+      });
+      this._getCacheInfoHanderList_ = getCacheInfoHanderList;
+      return P
+    }
+
+    this._takeingCacheInfo_ = true;
+    const cacheInfo = await this.store.getItem('ajaxCacheInfo') || {};
+    this._cacheInfo_ = cacheInfo;
+
+    delete this._takeingCacheInfo_;
+    if (this._getCacheInfoHanderList_) {
+      this._getCacheInfoHanderList_.forEach(async (handler) => {
+        handler.resolve(await this.getCacheInfo(handler.config));
+      });
+      delete this._getCacheInfoHanderList_;
+    }
+
+    return hash ? cacheInfo[hash] : cacheInfo
+  }
+
+  async updateCacheInfo (config) {
+    const cacheInfo = await this.getCacheInfo();
+
+    const hash = createHash(config);
+    if (hash && config) {
+      const info = {
+        url: config.url,
+        cacheTime: Date.now()
+      };
+
+      // 增加或更新缓存的基本信息
+      cacheInfo[hash] = info;
+    }
+
+    if (!this._updateCacheInfoIsWorking_) {
+      this._updateCacheInfoIsWorking_ = true;
+      await this.store.setItem('ajaxCacheInfo', cacheInfo);
+      this._updateCacheInfoIsWorking_ = false;
+    }
+  }
+
+  /**
+   * 清理已过期的缓存数据
+   * @param {number} expires 指定过期时间，单位：毫秒
+   * @returns
+   */
+  async cleanCache (expires) {
+    if (!expires) {
+      return
+    }
+
+    const cacheInfo = await this.getCacheInfo();
+    const cacheInfoKeys = Object.keys(cacheInfo);
+    const now = Date.now();
+
+    const storeKeys = await this.store.keys();
+
+    const needKeepKeys = cacheInfoKeys.filter(key => now - cacheInfo[key].cacheTime < expires);
+    needKeepKeys.push('ajaxCacheInfo');
+
+    /* 清理不需要的数据 */
+    storeKeys.forEach(async (key) => {
+      if (!needKeepKeys.includes(key)) {
+        this.store.removeItem(key);
+      }
+    });
+  }
+
+  async get (key) {
+    const data = await this.store.getItem(key);
+    debug.log('[cacheStore]', key, data);
+    return data
+  }
+
+  async set (key, data) {
+    await this.store.setItem(key, data);
+    debug.log('[cacheStore]', key, data);
+  }
+
+  async remove (key) {
+    await this.store.removeItem(key);
+    debug.log('[cacheStore]', key);
+  }
+
+  async clear () {
+    await this.store.clear();
+    debug.log('[cacheStore] clear');
+  }
+
+  async keys () {
+    const keys = await this.store.keys();
+    debug.log('[cacheStore] keys', keys);
+    return keys
+  }
+}
+
+var cacheStore = new CacheStore();
+
+/*!
+ * @name         ajaxHooks.js
+ * @description  底层请求hook
+ * @version      0.0.1
+ * @author       xxxily
+ * @date         2022/05/12 17:46
+ * @github       https://github.com/xxxily
+ */
+
+/**
+ * 判断是否符合进行缓存控制操作的条件
+ * @param {object} config
+ * @returns {boolean}
+ */
+function useCache (config) {
+  const ajaxCache = helper.config.ajaxCache;
+  if (ajaxCache.enabled) {
+    return filtersMatch(ajaxCache.filters, config.url)
+  } else {
+    return false
+  }
+}
+
+let ajaxHooksWin = window;
+
+const ajaxHooks = {
+  hook (win = ajaxHooksWin) {
+    proxy({
+      onRequest: async (config, handler) => {
+        let hitCache = false;
+
+        if (useCache(config)) {
+          const cacheInfo = await cacheStore.getCacheInfo(config);
+          const cache = await cacheStore.getCache(config);
+
+          if (cache && cacheInfo) {
+            const isExpires = Date.now() - cacheInfo.cacheTime > helper.config.ajaxCache.expires;
+
+            if (!isExpires) {
+              handler.resolve({
+                config: config,
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+                response: cache
+              });
+
+              hitCache = true;
+            }
+          }
+        }
+
+        if (hitCache) {
+          debug.warn(`[ajaxHooks] use cache:${config.url}`);
+        } else {
+          handler.next(config);
+        }
+      },
+
+      onError: (err, handler) => {
+        handler.next(err);
+      },
+
+      onResponse: async (response, handler) => {
+        if (useCache(response.config)) {
+          // 加入缓存
+          cacheStore.setCache(response, 'application/json');
+        }
+
+        handler.next(response);
+      }
+    }, win);
+  },
+
+  unHook (win = ajaxHooksWin) {
+    unProxy(win);
+  },
+
+  init (win) {
+    ajaxHooksWin = win;
+
+    if (helper.config.ajaxCache.enabled) {
+      ajaxHooks.hook(ajaxHooksWin);
+    }
+
+    /* 定时清除接口的缓存数据，防止不断堆积 */
+    setTimeout(() => {
+      cacheStore.cleanCache();
+    }, 1000 * 10);
+  }
+};
+
 /*!
  * @name         performanceObserver.js
  * @description  进行性能监测结果的打印
@@ -1842,8 +2503,45 @@ const functionCall = {
     }
 
     debug.log(`${i18n.t('debugHelper.togglePerformanceObserver')} success (${helper.config.performanceObserver.enabled})`);
-  }
+  },
 
+  useAjaxCache () {
+    helper.config.ajaxCache.enabled = true;
+
+    const filters = window.prompt(i18n.t('debugHelper.jaxCachePrompt.filters'), helper.config.ajaxCache.filters.join(','));
+    const expires = window.prompt(i18n.t('debugHelper.jaxCachePrompt.expires'), helper.config.ajaxCache.expires / 1000 / 60);
+
+    if (filters && expires) {
+      helper.config.ajaxCache.filters = toArrFilters(filters);
+
+      if (!isNaN(Number(expires))) {
+        helper.config.ajaxCache.expires = Number(expires) * 1000 * 60;
+      }
+
+      ajaxHooks.hook();
+
+      debug.log(`${i18n.t('debugHelper.enableAjaxCacheTips')}`);
+    }
+  },
+
+  disableAjaxCache () {
+    helper.config.ajaxCache.enabled = false;
+    ajaxHooks.unHook();
+    debug.log(`${i18n.t('debugHelper.disableAjaxCacheTips')}`);
+  },
+
+  toggleAjaxCache () {
+    if (helper.config.ajaxCache.enabled) {
+      functionCall.disableAjaxCache();
+    } else {
+      functionCall.useAjaxCache();
+    }
+  },
+
+  async clearAjaxCache () {
+    await cacheStore.store.clear();
+    debug.log(`${i18n.t('debugHelper.clearAjaxCacheTips')}`);
+  }
 };
 
 /*!
@@ -2836,6 +3534,9 @@ function init (win) {
     if (helper.config.hackVueComponent) {
       vueHooks.hackVueComponent(Vue);
     }
+
+    /* 注册接口拦截功能和接近数据缓存功能 */
+    ajaxHooks.init(win);
 
     /* 注册性能观察的功能 */
     performanceObserver.init();

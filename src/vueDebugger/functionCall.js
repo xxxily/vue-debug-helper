@@ -11,6 +11,8 @@ import helper from './helper'
 import debug from './debug'
 import i18n from './i18n'
 import vueHooks from './vueHooks'
+import ajaxHooks from './ajaxHooks'
+import cacheStore from './cacheStore'
 import performanceObserver from './performanceObserver'
 import {
   toArrFilters
@@ -169,8 +171,45 @@ const functionCall = {
     }
 
     debug.log(`${i18n.t('debugHelper.togglePerformanceObserver')} success (${helper.config.performanceObserver.enabled})`)
-  }
+  },
 
+  useAjaxCache () {
+    helper.config.ajaxCache.enabled = true
+
+    const filters = window.prompt(i18n.t('debugHelper.jaxCachePrompt.filters'), helper.config.ajaxCache.filters.join(','))
+    const expires = window.prompt(i18n.t('debugHelper.jaxCachePrompt.expires'), helper.config.ajaxCache.expires / 1000 / 60)
+
+    if (filters && expires) {
+      helper.config.ajaxCache.filters = toArrFilters(filters)
+
+      if (!isNaN(Number(expires))) {
+        helper.config.ajaxCache.expires = Number(expires) * 1000 * 60
+      }
+
+      ajaxHooks.hook()
+
+      debug.log(`${i18n.t('debugHelper.enableAjaxCacheTips')}`)
+    }
+  },
+
+  disableAjaxCache () {
+    helper.config.ajaxCache.enabled = false
+    ajaxHooks.unHook()
+    debug.log(`${i18n.t('debugHelper.disableAjaxCacheTips')}`)
+  },
+
+  toggleAjaxCache () {
+    if (helper.config.ajaxCache.enabled) {
+      functionCall.disableAjaxCache()
+    } else {
+      functionCall.useAjaxCache()
+    }
+  },
+
+  async clearAjaxCache () {
+    await cacheStore.store.clear()
+    debug.log(`${i18n.t('debugHelper.clearAjaxCacheTips')}`)
+  }
 }
 
 export default functionCall

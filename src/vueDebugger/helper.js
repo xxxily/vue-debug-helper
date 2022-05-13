@@ -30,6 +30,15 @@ window.vueDebugHelper = {
       entryTypes: ['element', 'navigation', 'resource', 'mark', 'measure', 'paint', 'longtask']
     },
 
+    /* 控制接口缓存 */
+    ajaxCache: {
+      enabled: false,
+      filters: ['*'],
+
+      /* 设置缓存多久失效，默认为1天 */
+      expires: 1000 * 60 * 60 * 24
+    },
+
     /* 是否在控制台打印组件生命周期的相关信息 */
     lifecycle: {
       show: false,

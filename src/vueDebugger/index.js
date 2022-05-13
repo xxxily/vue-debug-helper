@@ -6,6 +6,7 @@ import menuRegister from './menuRegister'
 import hotKeyRegister from './hotKeyRegister'
 import vueDetector from './vueDetector'
 import vueHooks from './vueHooks'
+import ajaxHooks from './ajaxHooks'
 import vueConfigInit from './vueConfig'
 import inspect from './inspect'
 import performanceObserver from './performanceObserver'
@@ -46,6 +47,9 @@ function init (win) {
     if (helper.config.hackVueComponent) {
       vueHooks.hackVueComponent(Vue)
     }
+
+    /* 注册接口拦截功能和接近数据缓存功能 */
+    ajaxHooks.init(win)
 
     /* 注册性能观察的功能 */
     performanceObserver.init()
