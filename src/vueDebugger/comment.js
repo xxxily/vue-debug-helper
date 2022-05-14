@@ -6,7 +6,7 @@
 // @name:ja      Vueデバッグ分析アシスタント
 // @namespace    https://github.com/xxxily/vue-debug-helper
 // @homepage     https://github.com/xxxily/vue-debug-helper
-// @version      0.0.13
+// @version      0.0.14
 // @description  Vue components debug helper
 // @description:en  Vue components debug helper
 // @description:zh  Vue组件探测、统计、分析辅助脚本
@@ -17,6 +17,7 @@
 // @match        http://*/*
 // @match        https://*/*
 // @grant        unsafeWindow
+// @grant        GM_getResourceText
 // @grant        GM_addStyle
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -35,6 +36,10 @@
 // @require      https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js
 // @require      https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/core.js
 // @require      https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/md5.js
+// @require      https://cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js
+// @require      https://cdn.jsdelivr.net/npm/jquery-contextmenu@2.9.2/dist/jquery.contextMenu.min.js
+// @require      https://cdn.jsdelivr.net/npm/jquery-contextmenu@2.9.2/dist/jquery.ui.position.min.js
+// @resource     contextMenuCss https://cdn.jsdelivr.net/npm/jquery-contextmenu@2.9.2/dist/jquery.contextMenu.min.css
 // @run-at       document-start
 // @connect      127.0.0.1
 // @license      GPL

@@ -58,7 +58,7 @@ const ajaxHooks = {
         }
 
         if (hitCache) {
-          debug.warn(`[ajaxHooks] use cache:${config.url}`)
+          debug.warn(`[ajaxHooks] use cache:${config.method} ${config.url}`, config)
         } else {
           handler.next(config)
         }
@@ -92,7 +92,7 @@ const ajaxHooks = {
 
     /* 定时清除接口的缓存数据，防止不断堆积 */
     setTimeout(() => {
-      cacheStore.cleanCache()
+      cacheStore.cleanCache(helper.config.ajaxCache.expires)
     }, 1000 * 10)
   }
 }

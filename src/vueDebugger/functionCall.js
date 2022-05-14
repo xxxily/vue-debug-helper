@@ -14,9 +14,11 @@ import vueHooks from './vueHooks'
 import ajaxHooks from './ajaxHooks'
 import cacheStore from './cacheStore'
 import performanceObserver from './performanceObserver'
+import inspect from './inspect'
 import {
   toArrFilters
 } from './utils'
+import ready from '../libs/utils/ready'
 
 const functionCall = {
   viewVueDebugHelperObject () {
@@ -144,6 +146,10 @@ const functionCall = {
   toggleInspect () {
     helper.config.inspect.enabled = !helper.config.inspect.enabled
     debug.log(`${i18n.t('debugHelper.toggleInspect')} success (${helper.config.inspect.enabled})`)
+
+    if (!helper.config.inspect.enabled) {
+      inspect.clearOverlay()
+    }
   },
 
   togglePerformanceObserver () {
@@ -209,6 +215,70 @@ const functionCall = {
   async clearAjaxCache () {
     await cacheStore.store.clear()
     debug.log(`${i18n.t('debugHelper.clearAjaxCacheTips')}`)
+  },
+
+  addMeasureSelectorInterval (selector1, selector2) {
+    let result = {}
+    if (!functionCall._measureSelectorArr) {
+      functionCall._measureSelectorArr = []
+    }
+
+    function measure (element) {
+      // debug.log(`[measure] ${i18n.t('debugHelper.measureSelectorInterval')}`, element)
+
+      const selector1 = helper.config.measureSelectorInterval.selector1
+      const selector2 = helper.config.measureSelectorInterval.selector2
+      const selectorArr = [selector1, selector2]
+      selectorArr.forEach(selector => {
+        if (element.parentElement && element.parentElement.querySelector(selector)) {
+          result[selector] = {
+            time: Date.now(),
+            element: element
+          }
+
+          debug.info(`${i18n.t('debugHelper.selectorReadyTips')}: ${selector}`, element)
+        }
+      })
+
+      if (Object.keys(result).length >= 2) {
+        const time = ((result[selector2].time - result[selector1].time) / 1000).toFixed(2)
+
+        debug.info(`[[${selector1}] -> [${selector2}]] time: ${time}s`)
+        result = {}
+      }
+    }
+
+    if (selector1 && selector2) {
+      helper.config.measureSelectorInterval.selector1 = selector1
+      helper.config.measureSelectorInterval.selector2 = selector2
+
+      const selectorArr = [selector1, selector2]
+      selectorArr.forEach(selector => {
+        if (!functionCall._measureSelectorArr.includes(selector)) {
+          // 防止重复注册
+          functionCall._measureSelectorArr.push(selector)
+
+          ready(selector, measure)
+        }
+      })
+    } else {
+      debug.log('selector is empty, please input selector')
+    }
+  },
+
+  initMeasureSelectorInterval () {
+    const selector1 = helper.config.measureSelectorInterval.selector1
+    const selector2 = helper.config.measureSelectorInterval.selector2
+    if (selector1 && selector2) {
+      functionCall.addMeasureSelectorInterval(selector1, selector2)
+      debug.log('[measureSelectorInterval] init success')
+    }
+  },
+
+  measureSelectorInterval () {
+    const selector1 = window.prompt(i18n.t('debugHelper.measureSelectorIntervalPrompt.selector1'), helper.config.measureSelectorInterval.selector1)
+    const selector2 = window.prompt(i18n.t('debugHelper.measureSelectorIntervalPrompt.selector2'), helper.config.measureSelectorInterval.selector2)
+    functionCall.addMeasureSelectorInterval(selector1, selector2)
   }
 }
 

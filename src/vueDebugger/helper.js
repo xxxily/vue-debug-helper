@@ -39,6 +39,12 @@ window.vueDebugHelper = {
       expires: 1000 * 60 * 60 * 24
     },
 
+    /* 测量选择器时间差 */
+    measureSelectorInterval: {
+      selector1: '',
+      selector2: ''
+    },
+
     /* 是否在控制台打印组件生命周期的相关信息 */
     lifecycle: {
       show: false,

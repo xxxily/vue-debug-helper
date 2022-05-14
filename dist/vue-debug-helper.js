@@ -6,7 +6,7 @@
 // @name:ja      Vueデバッグ分析アシスタント
 // @namespace    https://github.com/xxxily/vue-debug-helper
 // @homepage     https://github.com/xxxily/vue-debug-helper
-// @version      0.0.13
+// @version      0.0.14
 // @description  Vue components debug helper
 // @description:en  Vue components debug helper
 // @description:zh  Vue组件探测、统计、分析辅助脚本
@@ -17,6 +17,7 @@
 // @match        http://*/*
 // @match        https://*/*
 // @grant        unsafeWindow
+// @grant        GM_getResourceText
 // @grant        GM_addStyle
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -35,6 +36,10 @@
 // @require      https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js
 // @require      https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/core.js
 // @require      https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/md5.js
+// @require      https://cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js
+// @require      https://cdn.jsdelivr.net/npm/jquery-contextmenu@2.9.2/dist/jquery.contextMenu.min.js
+// @require      https://cdn.jsdelivr.net/npm/jquery-contextmenu@2.9.2/dist/jquery.ui.position.min.js
+// @resource     contextMenuCss https://cdn.jsdelivr.net/npm/jquery-contextmenu@2.9.2/dist/jquery.contextMenu.min.css
 // @run-at       document-start
 // @connect      127.0.0.1
 // @license      GPL
@@ -315,6 +320,12 @@ window.vueDebugHelper = {
 
       /* 设置缓存多久失效，默认为1天 */
       expires: 1000 * 60 * 60 * 24
+    },
+
+    /* 测量选择器时间差 */
+    measureSelectorInterval: {
+      selector1: '',
+      selector2: ''
     },
 
     /* 是否在控制台打印组件生命周期的相关信息 */
@@ -1015,6 +1026,12 @@ var zhCN = {
       filters: '输入要缓存的接口地址，多个可用,或|分隔，字符串后面加*可执行模糊匹配',
       expires: '输入缓存过期时间，单位为分钟，默认为1440分钟（即24小时）'
     },
+    measureSelectorInterval: '测量选择器时间差',
+    measureSelectorIntervalPrompt: {
+      selector1: '输入起始选择器',
+      selector2: '输入结束选择器'
+    },
+    selectorReadyTips: '元素已就绪',
     devtools: {
       enabled: '自动开启vue-devtools',
       disable: '禁止开启vue-devtools'
@@ -2055,7 +2072,13 @@ function createHash (config) {
     url = url.replace(/=\d{13}/, '=cache');
   }
 
-  const hash = md5(url);
+  let hashStr = url;
+
+  if (config.method.toUpperCase() === 'POST') {
+    hashStr += JSON.stringify(config.data) + JSON.stringify(config.body);
+  }
+
+  const hash = md5(hashStr);
   config._hash_ = hash;
 
   return hash
@@ -2089,7 +2112,7 @@ class CacheStore {
       /* 设置缓存的时候顺便更新缓存相关的基础信息，注意，该信息并不能100%被同步到本地 */
       await this.updateCacheInfo(response.config);
 
-      debug.log(`[cacheStore setCache] ${response.config.url}`);
+      debug.log(`[cacheStore setCache] ${response.config.url}`, response);
     }
   }
 
@@ -2257,7 +2280,7 @@ const ajaxHooks = {
         }
 
         if (hitCache) {
-          debug.warn(`[ajaxHooks] use cache:${config.url}`);
+          debug.warn(`[ajaxHooks] use cache:${config.method} ${config.url}`, config);
         } else {
           handler.next(config);
         }
@@ -2291,7 +2314,7 @@ const ajaxHooks = {
 
     /* 定时清除接口的缓存数据，防止不断堆积 */
     setTimeout(() => {
-      cacheStore.cleanCache();
+      cacheStore.cleanCache(helper.config.ajaxCache.expires);
     }, 1000 * 10);
   }
 };
@@ -2340,6 +2363,176 @@ const performanceObserver = {
     performanceObserver.observer.observe({ entryTypes: helper.config.performanceObserver.entryTypes });
   }
 };
+
+/*!
+ * @name         inspect.js
+ * @description  vue组件审查模块
+ * @version      0.0.1
+ * @author       xxxily
+ * @date         2022/05/10 18:25
+ * @github       https://github.com/xxxily
+ */
+// import debug from './debug'
+
+const inspect = {
+  findComponentsByElement (el) {
+    let result = null;
+    let deep = 0;
+    let parent = el;
+    while (parent) {
+      if (deep >= 50) {
+        break
+      }
+
+      if (parent.__vue__) {
+        result = parent;
+        break
+      }
+
+      deep++;
+      parent = parent.parentNode;
+    }
+
+    return result
+  },
+
+  setContextMenu () {
+    window.$.contextMenu({
+      selector: 'body',
+      zIndex: 2147483647,
+      callback: function (itemKey, opt, e) {
+        var m = 'global: ' + itemKey;
+        window.console && console.log(m);
+      },
+      items: {
+        test: { name: '右键功能尚在开发中……' },
+        edit: {
+          name: '',
+          icon: 'edit',
+          // superseeds "global" callback
+          callback: function (itemKey, opt, e) {
+            var m = 'edit was clicked';
+            window.console && console.log(m);
+          }
+        },
+        cut: { name: 'Cut', icon: 'cut' },
+        copy: { name: 'Copy', icon: 'copy' },
+        paste: { name: 'Paste', icon: 'paste' },
+        delete: { name: 'Delete', icon: 'delete' },
+        sep1: '---------',
+        quit: { name: 'Quit', icon: function ($element, key, item) { return 'context-menu-icon context-menu-icon-quit' } }
+      }
+    });
+  },
+
+  setOverlay (el) {
+    let overlay = document.querySelector('#vue-debugger-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'vue-debugger-overlay';
+      overlay.style.position = 'fixed';
+      overlay.style.backgroundColor = 'rgba(65, 184, 131, 0.35)';
+      overlay.style.zIndex = 2147483647;
+      overlay.style.pointerEvents = 'none';
+      document.body.appendChild(overlay);
+    }
+
+    const rect = el.getBoundingClientRect();
+
+    overlay.style.width = rect.width + 'px';
+    overlay.style.height = rect.height + 'px';
+    overlay.style.left = rect.x + 'px';
+    overlay.style.top = rect.y + 'px';
+    overlay.style.display = 'block';
+
+    // overlay.parentElement.addEventListener('contextmenu', function (e) {
+    //   debug.log('overlay contextmenu')
+    //   e.preventDefault()
+    //   e.stopPropagation()
+    // }, true)
+
+    inspect.setContextMenu();
+    // console.log(el, rect, el.__vue__._componentTag)
+  },
+
+  clearOverlay () {
+    const overlay = document.querySelector('#vue-debugger-overlay');
+    if (overlay) {
+      overlay.style.display = 'none';
+    }
+  },
+
+  init (Vue) {
+    document.body.addEventListener('mouseover', (event) => {
+      if (!helper.config.inspect.enabled) {
+        return
+      }
+
+      const componentEl = inspect.findComponentsByElement(event.target);
+
+      if (componentEl) {
+        inspect.setOverlay(componentEl);
+      }
+    });
+  }
+};
+
+/**
+ * 元素监听器
+ * @param selector -必选
+ * @param fn -必选，元素存在时的回调
+ * @param shadowRoot -可选 指定监听某个shadowRoot下面的DOM元素
+ * 参考：https://javascript.ruanyifeng.com/dom/mutationobserver.html
+ */
+function ready (selector, fn, shadowRoot) {
+  const win = window;
+  const docRoot = shadowRoot || win.document.documentElement;
+  if (!docRoot) return false
+  const MutationObserver = win.MutationObserver || win.WebKitMutationObserver;
+  const listeners = docRoot._MutationListeners || [];
+
+  function $ready (selector, fn) {
+    // 储存选择器和回调函数
+    listeners.push({
+      selector: selector,
+      fn: fn
+    });
+
+    /* 增加监听对象 */
+    if (!docRoot._MutationListeners || !docRoot._MutationObserver) {
+      docRoot._MutationListeners = listeners;
+      docRoot._MutationObserver = new MutationObserver(() => {
+        for (let i = 0; i < docRoot._MutationListeners.length; i++) {
+          const item = docRoot._MutationListeners[i];
+          check(item.selector, item.fn);
+        }
+      });
+
+      docRoot._MutationObserver.observe(docRoot, {
+        childList: true,
+        subtree: true
+      });
+    }
+
+    // 检查节点是否已经在DOM中
+    check(selector, fn);
+  }
+
+  function check (selector, fn) {
+    const elements = docRoot.querySelectorAll(selector);
+    for (let i = 0; i < elements.length; i++) {
+      const element = elements[i];
+      element._MutationReadyList_ = element._MutationReadyList_ || [];
+      if (!element._MutationReadyList_.includes(fn)) {
+        element._MutationReadyList_.push(fn);
+        fn.call(element, element);
+      }
+    }
+  }
+
+  const selectorArr = Array.isArray(selector) ? selector : [selector];
+  selectorArr.forEach(selector => $ready(selector, fn));
+}
 
 /*!
  * @name         functionCall.js
@@ -2476,6 +2669,10 @@ const functionCall = {
   toggleInspect () {
     helper.config.inspect.enabled = !helper.config.inspect.enabled;
     debug.log(`${i18n.t('debugHelper.toggleInspect')} success (${helper.config.inspect.enabled})`);
+
+    if (!helper.config.inspect.enabled) {
+      inspect.clearOverlay();
+    }
   },
 
   togglePerformanceObserver () {
@@ -2541,6 +2738,70 @@ const functionCall = {
   async clearAjaxCache () {
     await cacheStore.store.clear();
     debug.log(`${i18n.t('debugHelper.clearAjaxCacheTips')}`);
+  },
+
+  addMeasureSelectorInterval (selector1, selector2) {
+    let result = {};
+    if (!functionCall._measureSelectorArr) {
+      functionCall._measureSelectorArr = [];
+    }
+
+    function measure (element) {
+      // debug.log(`[measure] ${i18n.t('debugHelper.measureSelectorInterval')}`, element)
+
+      const selector1 = helper.config.measureSelectorInterval.selector1;
+      const selector2 = helper.config.measureSelectorInterval.selector2;
+      const selectorArr = [selector1, selector2];
+      selectorArr.forEach(selector => {
+        if (element.parentElement && element.parentElement.querySelector(selector)) {
+          result[selector] = {
+            time: Date.now(),
+            element: element
+          };
+
+          debug.info(`${i18n.t('debugHelper.selectorReadyTips')}: ${selector}`, element);
+        }
+      });
+
+      if (Object.keys(result).length >= 2) {
+        const time = ((result[selector2].time - result[selector1].time) / 1000).toFixed(2);
+
+        debug.info(`[[${selector1}] -> [${selector2}]] time: ${time}s`);
+        result = {};
+      }
+    }
+
+    if (selector1 && selector2) {
+      helper.config.measureSelectorInterval.selector1 = selector1;
+      helper.config.measureSelectorInterval.selector2 = selector2;
+
+      const selectorArr = [selector1, selector2];
+      selectorArr.forEach(selector => {
+        if (!functionCall._measureSelectorArr.includes(selector)) {
+          // 防止重复注册
+          functionCall._measureSelectorArr.push(selector);
+
+          ready(selector, measure);
+        }
+      });
+    } else {
+      debug.log('selector is empty, please input selector');
+    }
+  },
+
+  initMeasureSelectorInterval () {
+    const selector1 = helper.config.measureSelectorInterval.selector1;
+    const selector2 = helper.config.measureSelectorInterval.selector2;
+    if (selector1 && selector2) {
+      functionCall.addMeasureSelectorInterval(selector1, selector2);
+      debug.log('[measureSelectorInterval] init success');
+    }
+  },
+
+  measureSelectorInterval () {
+    const selector1 = window.prompt(i18n.t('debugHelper.measureSelectorIntervalPrompt.selector1'), helper.config.measureSelectorInterval.selector1);
+    const selector2 = window.prompt(i18n.t('debugHelper.measureSelectorIntervalPrompt.selector2'), helper.config.measureSelectorInterval.selector2);
+    functionCall.addMeasureSelectorInterval(selector1, selector2);
   }
 };
 
@@ -3381,75 +3642,6 @@ function vueConfigInit (Vue, config) {
   }
 }
 
-/*!
- * @name         inspect.js
- * @description  vue组件审查模块
- * @version      0.0.1
- * @author       xxxily
- * @date         2022/05/10 18:25
- * @github       https://github.com/xxxily
- */
-
-const inspect = {
-  findComponentsByElement (el) {
-    let result = null;
-    let deep = 0;
-    let parent = el;
-    while (parent) {
-      if (deep >= 50) {
-        break
-      }
-
-      if (parent.__vue__) {
-        result = parent;
-        break
-      }
-
-      deep++;
-      parent = parent.parentNode;
-    }
-
-    return result
-  },
-
-  setOverlay (el) {
-    let overlay = document.querySelector('#vue-debugger-overlay');
-    if (!overlay) {
-      overlay = document.createElement('div');
-      overlay.id = 'vue-debugger-overlay';
-      overlay.style.position = 'fixed';
-      overlay.style.backgroundColor = 'rgba(65, 184, 131, 0.35)';
-      overlay.style.zIndex = 2147483647;
-      overlay.style.pointerEvents = 'none';
-      document.body.appendChild(overlay);
-    }
-
-    const rect = el.getBoundingClientRect();
-
-    overlay.style.width = rect.width + 'px';
-    overlay.style.height = rect.height + 'px';
-    overlay.style.left = rect.x + 'px';
-    overlay.style.top = rect.y + 'px';
-    overlay.style.display = 'block';
-
-    console.log(el, rect, el.__vue__._componentTag);
-  },
-
-  init (Vue) {
-    document.body.addEventListener('mouseover', (event) => {
-      if (!helper.config.inspect.enabled) {
-        return
-      }
-
-      const componentEl = inspect.findComponentsByElement(event.target);
-
-      if (componentEl) {
-        inspect.setOverlay(componentEl);
-      }
-    });
-  }
-};
-
 /**
  * 判断是否处于Iframe中
  * @returns {boolean}
@@ -3510,6 +3702,12 @@ function getPageWindowSync () {
 let registerStatus = 'init';
 window._debugMode_ = true;
 
+/* 注入相关样式到页面 */
+if (window.GM_getResourceText && window.GM_addStyle) {
+  const contextMenuCss = window.GM_getResourceText('contextMenuCss');
+  window.GM_addStyle(contextMenuCss);
+}
+
 function init (win) {
   if (isInIframe()) {
     debug.log('running in iframe, skip init', window.location.href);
@@ -3540,6 +3738,9 @@ function init (win) {
 
     /* 注册性能观察的功能 */
     performanceObserver.init();
+
+    /* 注册选择器测量辅助功能 */
+    functionCall.initMeasureSelectorInterval();
 
     /* 对Vue相关配置进行初始化 */
     vueConfigInit(Vue, helper.config);

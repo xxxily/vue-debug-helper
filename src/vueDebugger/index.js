@@ -10,6 +10,7 @@ import ajaxHooks from './ajaxHooks'
 import vueConfigInit from './vueConfig'
 import inspect from './inspect'
 import performanceObserver from './performanceObserver'
+import functionCall from './functionCall'
 
 import {
   isInIframe
@@ -22,6 +23,12 @@ import {
 
 let registerStatus = 'init'
 window._debugMode_ = true
+
+/* 注入相关样式到页面 */
+if (window.GM_getResourceText && window.GM_addStyle) {
+  const contextMenuCss = window.GM_getResourceText('contextMenuCss')
+  window.GM_addStyle(contextMenuCss)
+}
 
 function init (win) {
   if (isInIframe()) {
@@ -53,6 +60,9 @@ function init (win) {
 
     /* 注册性能观察的功能 */
     performanceObserver.init()
+
+    /* 注册选择器测量辅助功能 */
+    functionCall.initMeasureSelectorInterval()
 
     /* 对Vue相关配置进行初始化 */
     vueConfigInit(Vue, helper.config)

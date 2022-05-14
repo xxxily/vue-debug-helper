@@ -31,7 +31,13 @@ function createHash (config) {
     url = url.replace(/=\d{13}/, '=cache')
   }
 
-  const hash = md5(url)
+  let hashStr = url
+
+  if (config.method.toUpperCase() === 'POST') {
+    hashStr += JSON.stringify(config.data) + JSON.stringify(config.body)
+  }
+
+  const hash = md5(hashStr)
   config._hash_ = hash
 
   return hash
@@ -65,7 +71,7 @@ class CacheStore {
       /* 设置缓存的时候顺便更新缓存相关的基础信息，注意，该信息并不能100%被同步到本地 */
       await this.updateCacheInfo(response.config)
 
-      debug.log(`[cacheStore setCache] ${response.config.url}`)
+      debug.log(`[cacheStore setCache] ${response.config.url}`, response)
     }
   }
 
