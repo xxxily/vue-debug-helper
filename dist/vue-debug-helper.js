@@ -2153,15 +2153,17 @@ class CacheStore {
   async updateCacheInfo (config) {
     const cacheInfo = await this.getCacheInfo();
 
-    const hash = createHash(config);
-    if (hash && config) {
-      const info = {
-        url: config.url,
-        cacheTime: Date.now()
-      };
+    if (config) {
+      const hash = createHash(config);
+      if (hash && config) {
+        const info = {
+          url: config.url,
+          cacheTime: Date.now()
+        };
 
-      // 增加或更新缓存的基本信息
-      cacheInfo[hash] = info;
+        // 增加或更新缓存的基本信息
+        cacheInfo[hash] = info;
+      }
     }
 
     if (!this._updateCacheInfoIsWorking_) {
@@ -2190,12 +2192,23 @@ class CacheStore {
     const needKeepKeys = cacheInfoKeys.filter(key => now - cacheInfo[key].cacheTime < expires);
     needKeepKeys.push('ajaxCacheInfo');
 
+    const clearResult = [];
+
     /* 清理不需要的数据 */
-    storeKeys.forEach(async (key) => {
+    storeKeys.forEach((key) => {
       if (!needKeepKeys.includes(key)) {
+        clearResult.push(this._cacheInfo_[key] || key);
+
         this.store.removeItem(key);
+        delete this._cacheInfo_[key];
       }
     });
+
+    /* 更新缓存信息 */
+    if (clearResult.length) {
+      await this.updateCacheInfo();
+      debug.log('[cacheStore cleanCache] clearResult:', clearResult);
+    }
   }
 
   async get (key) {
