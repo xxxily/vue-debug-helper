@@ -4,6 +4,7 @@ Vue组件探测、统计、分析辅助脚本
 脚本安装地址：[https://greasyfork.org/scripts/444075](https://greasyfork.org/scripts/444075)
 
 ## 特性
+* 支持生产环境下进行组件审查
 * 按需打印组件的生命周期信息
 * 支持全局组件注册情况观察
 * 支持强制阻断组件的创建
