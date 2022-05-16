@@ -4,6 +4,8 @@ export default {
   setting: '设置',
   hotkeys: '快捷键',
   donate: '赞赏',
+  quit: '退出',
+  refreshPage: '刷新页面',
   debugHelper: {
     viewVueDebugHelperObject: 'vueDebugHelper对象',
     componentsStatistics: '当前存活组件统计',
@@ -38,7 +40,15 @@ export default {
       unhack: '还原Vue.component'
     },
     toggleInspect: '切换Inspect',
+    inspectStatus: {
+      on: '开启Inspect',
+      off: '关闭Inspect'
+    },
     togglePerformanceObserver: '开启/关闭性能观察',
+    performanceObserverStatus: {
+      on: '开启性能观察',
+      off: '关闭性能观察'
+    },
     performanceObserverPrompt: {
       entryTypes: '输入要观察的类型，多个类型可用,或|分隔，支持的类型有：element,navigation,resource,mark,measure,paint,longtask',
       notSupport: '当前浏览器不支持性能观察'
@@ -46,6 +56,10 @@ export default {
     enableAjaxCacheTips: '接口缓存功能已开启',
     disableAjaxCacheTips: '接口缓存功能已关闭',
     toggleAjaxCache: '开启/关闭接口缓存',
+    ajaxCacheStatus: {
+      on: '开启接口缓存',
+      off: '关闭接口缓存'
+    },
     clearAjaxCache: '清空接口缓存数据',
     clearAjaxCacheTips: '接口缓存数据已清空',
     jaxCachePrompt: {

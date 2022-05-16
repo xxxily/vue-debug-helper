@@ -89,9 +89,9 @@ const functionCall = {
     debug.log(i18n.t('debugHelper.clearAll'))
   },
 
-  printLifeCycleInfo () {
+  printLifeCycleInfo (str) {
     const lifecycleFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.lifecycleFilters'), helper.config.lifecycle.filters.join(','))
-    const componentFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.componentFilters'), helper.config.lifecycle.componentFilters.join(','))
+    const componentFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.componentFilters'), str || helper.config.lifecycle.componentFilters.join(','))
 
     if (lifecycleFilters !== null && componentFilters !== null) {
       debug.log(i18n.t('debugHelper.printLifeCycleInfo'))
@@ -104,8 +104,8 @@ const functionCall = {
     helper.methods.notPrintLifeCycleInfo()
   },
 
-  findComponents () {
-    const filters = window.prompt(i18n.t('debugHelper.findComponentsPrompt.filters'), helper.config.findComponentsFilters.join(','))
+  findComponents (str) {
+    const filters = window.prompt(i18n.t('debugHelper.findComponentsPrompt.filters'), str || helper.config.findComponentsFilters.join(','))
     if (filters !== null) {
       debug.log(i18n.t('debugHelper.findComponents'), helper.methods.findComponents(filters))
     }
@@ -115,8 +115,8 @@ const functionCall = {
     debug.log(i18n.t('debugHelper.findNotContainElementComponents'), helper.methods.findNotContainElementComponents())
   },
 
-  blockComponents () {
-    const filters = window.prompt(i18n.t('debugHelper.blockComponentsPrompt.filters'), helper.config.blockFilters.join(','))
+  blockComponents (str) {
+    const filters = window.prompt(i18n.t('debugHelper.blockComponentsPrompt.filters'), str || helper.config.blockFilters.join(','))
     if (filters !== null) {
       helper.methods.blockComponents(filters)
       debug.log(i18n.t('debugHelper.blockComponents'), filters)
@@ -230,7 +230,7 @@ const functionCall = {
       const selector2 = helper.config.measureSelectorInterval.selector2
       const selectorArr = [selector1, selector2]
       selectorArr.forEach(selector => {
-        if (element.parentElement && element.parentElement.querySelector(selector)) {
+        if (selector && element.parentElement && element.parentElement.querySelector(selector)) {
           result[selector] = {
             time: Date.now(),
             element: element
@@ -278,6 +278,12 @@ const functionCall = {
   measureSelectorInterval () {
     const selector1 = window.prompt(i18n.t('debugHelper.measureSelectorIntervalPrompt.selector1'), helper.config.measureSelectorInterval.selector1)
     const selector2 = window.prompt(i18n.t('debugHelper.measureSelectorIntervalPrompt.selector2'), helper.config.measureSelectorInterval.selector2)
+
+    if (!selector1 && !selector2) {
+      helper.config.measureSelectorInterval.selector1 = ''
+      helper.config.measureSelectorInterval.selector2 = ''
+    }
+
     functionCall.addMeasureSelectorInterval(selector1, selector2)
   }
 }

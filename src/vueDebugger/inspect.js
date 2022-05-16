@@ -10,9 +10,15 @@ import helper from './helper'
 import debug from './debug'
 import i18n from './i18n'
 import functionCall from './functionCall'
+import {
+  copyToClipboard
+} from './utils'
 
 const $ = window.$
 let currentComponent = null
+// let parentComponent = null
+// let grandParentComponent = null
+// let greatGrandParentComponent = null
 
 const inspect = {
   findComponentsByElement (el) {
@@ -41,45 +47,155 @@ const inspect = {
       return
     }
 
+    function createComponentMenuItem (vueComponent, deep = 0) {
+      let componentMenu = {}
+      if (vueComponent) {
+        componentMenu = {
+          consoleComponent: {
+            name: `查看组件：${vueComponent._componentName}`,
+            icon: 'fa-eye',
+            callback: function (key, options) {
+              debug.log(`[vueComponent] ${vueComponent._componentTag}`, vueComponent)
+            }
+          },
+          consoleComponentData: {
+            name: `查看组件数据：${vueComponent._componentName}`,
+            icon: 'fa-eye',
+            callback: function (key, options) {
+              debug.log(`[vueComponentData] ${vueComponent._componentTag}`, vueComponent.$data)
+            }
+          },
+          consoleComponentProps: {
+            name: `查看组件props：${vueComponent._componentName}`,
+            icon: 'fa-eye',
+            callback: function (key, options) {
+              debug.log(`[vueComponentProps] ${vueComponent._componentTag}`, vueComponent.$props)
+            }
+          },
+          consoleComponentChain: {
+            name: `查看组件调用链：${vueComponent._componentName}`,
+            icon: 'fa-eye',
+            callback: function (key, options) {
+              debug.log(`[vueComponentMethods] ${vueComponent._componentTag}`, vueComponent._componentChain)
+            }
+          }
+        }
+      }
+
+      if (vueComponent.$parent && deep <= 10) {
+        componentMenu.parentComponent = {
+          name: `查看父组件：${vueComponent.$parent._componentName}`,
+          icon: 'fa-eye',
+          items: createComponentMenuItem(vueComponent.$parent, deep + 1)
+        }
+      }
+
+      const file = vueComponent.options?.__file || vueComponent.$options?.__file || ''
+      let copyFilePath = {}
+      if (file) {
+        copyFilePath = {
+          copyFilePath: {
+            name: '复制组件文件路径',
+            icon: 'fa-copy',
+            callback: function (key, options) {
+              copyToClipboard(file)
+            }
+          }
+        }
+      }
+
+      componentMenu.componentAction = {
+        name: `相关操作：${vueComponent._componentName}`,
+        icon: 'fa-cog',
+        items: {
+          ...copyFilePath,
+          copyComponentName: {
+            name: `复制组件名称：${vueComponent._componentName}`,
+            icon: 'fa-copy',
+            callback: function (key, options) {
+              copyToClipboard(vueComponent._componentName)
+            }
+          },
+          copyComponentData: {
+            name: `复制组件$data：${vueComponent._componentName}`,
+            icon: 'fa-copy',
+            callback: function (key, options) {
+              const data = JSON.stringify(vueComponent.$data, null, 2)
+              copyToClipboard(data)
+              debug.log(`[vueComponentData] ${vueComponent._componentName}`, JSON.parse(data))
+              debug.log(data)
+            }
+          },
+          copyComponentProps: {
+            name: `复制组件$props：${vueComponent._componentName}`,
+            icon: 'fa-copy',
+            callback: function (key, options) {
+              const props = JSON.stringify(vueComponent.$props, null, 2)
+              copyToClipboard(props)
+              debug.log(`[vueComponentProps] ${vueComponent._componentName}`, JSON.parse(props))
+              debug.log(props)
+            }
+          },
+          // copyComponentTag: {
+          //   name: `复制组件标签：${vueComponent._componentTag}`,
+          //   icon: 'fa-copy',
+          //   callback: function (key, options) {
+          //     copyToClipboard(vueComponent._componentTag)
+          //   }
+          // },
+          copyComponentUid: {
+            name: `复制组件uid：${vueComponent._uid}`,
+            icon: 'fa-copy',
+            callback: function (key, options) {
+              copyToClipboard(vueComponent._uid)
+            }
+          },
+          copyComponentChian: {
+            name: '复制组件调用链',
+            icon: 'fa-copy',
+            callback: function (key, options) {
+              copyToClipboard(vueComponent._componentChain)
+              debug.log(`[vueComponentChain] ${vueComponent._componentName}`, vueComponent._componentChain)
+            }
+          },
+          findComponents: {
+            name: `查找组件：${vueComponent._componentName}`,
+            icon: 'fa-search',
+            callback: function (key, options) {
+              functionCall.findComponents(vueComponent._componentName)
+            }
+          },
+          printLifeCycleInfo: {
+            name: `打印生命周期信息：${vueComponent._componentName}`,
+            icon: 'fa-print',
+            callback: function (key, options) {
+              functionCall.printLifeCycleInfo(vueComponent._componentName)
+            }
+          },
+          blockComponents: {
+            name: `阻断组件：${vueComponent._componentName}`,
+            icon: 'fa-ban',
+            callback: function (key, options) {
+              functionCall.blockComponents(vueComponent._componentName)
+            }
+          }
+        }
+      }
+
+      return componentMenu
+    }
+
     $.contextMenu({
       selector: 'body.vue-debug-helper-inspect-mode',
       zIndex: 2147483647,
       build: function ($trigger, e) {
+        const conf = helper.config
         const vueComponent = currentComponent ? currentComponent.__vue__ : null
 
         let componentMenu = {}
         if (vueComponent) {
-          componentMenu = {
-            consoleComponent: {
-              name: `查看组件：${vueComponent._componentName}`,
-              icon: 'fa-eye',
-              callback: function (key, options) {
-                debug.log(`[vueComponent] ${vueComponent._componentTag}`, vueComponent)
-              }
-            },
-            consoleComponentData: {
-              name: `查看组件数据：${vueComponent._componentName}`,
-              icon: 'fa-eye',
-              callback: function (key, options) {
-                debug.log(`[vueComponentData] ${vueComponent._componentTag}`, vueComponent.$data)
-              }
-            },
-            consoleComponentProps: {
-              name: `查看组件props：${vueComponent._componentName}`,
-              icon: 'fa-eye',
-              callback: function (key, options) {
-                debug.log(`[vueComponentProps] ${vueComponent._componentTag}`, vueComponent.$props)
-              }
-            },
-            consoleComponentChain: {
-              name: `查看组件调用链：${vueComponent._componentName}`,
-              icon: 'fa-eye',
-              callback: function (key, options) {
-                debug.log(`[vueComponentMethods] ${vueComponent._componentTag}`, vueComponent._componentChain)
-              }
-            },
-            componentMenuSeparator: '---------'
-          }
+          componentMenu = createComponentMenuItem(vueComponent)
+          componentMenu.componentMenuSeparator = '---------'
         }
 
         const commonMenu = {
@@ -104,16 +220,6 @@ const inspect = {
             callback: functionCall.clearAll
           },
           statisticsSeparator: '---------',
-          printLifeCycleInfo: {
-            name: i18n.t('debugHelper.printLifeCycleInfo'),
-            icon: 'fa-regular fa-life-ring',
-            callback: functionCall.printLifeCycleInfo
-          },
-          notPrintLifeCycleInfo: {
-            name: i18n.t('debugHelper.notPrintLifeCycleInfo'),
-            icon: 'fa-regular fa-life-ring',
-            callback: functionCall.notPrintLifeCycleInfo
-          },
           findComponents: {
             name: i18n.t('debugHelper.findComponents'),
             icon: 'fa-regular fa-search',
@@ -124,32 +230,47 @@ const inspect = {
             icon: 'fa-regular fa-ban',
             callback: functionCall.blockComponents
           },
-          dd: {
-            name: i18n.t('debugHelper.dd'),
-            icon: 'fa-regular fa-arrows-alt',
-            callback: functionCall.dd
+          printLifeCycleInfo: {
+            name: conf.lifecycle.show ? i18n.t('debugHelper.notPrintLifeCycleInfo') : i18n.t('debugHelper.printLifeCycleInfo'),
+            icon: 'fa-regular fa-life-ring',
+            callback: conf.lifecycle.show ? functionCall.notPrintLifeCycleInfo : functionCall.printLifeCycleInfo
           },
-          undd: {
-            name: i18n.t('debugHelper.undd'),
+          dd: {
+            name: conf.dd.enabled ? i18n.t('debugHelper.undd') : i18n.t('debugHelper.dd'),
             icon: 'fa-regular fa-arrows-alt',
-            callback: functionCall.undd
+            callback: conf.dd.enabled ? functionCall.undd : functionCall.dd
           },
           toggleHackVueComponent: {
-            name: i18n.t('debugHelper.toggleHackVueComponent'),
+            name: conf.hackVueComponent ? i18n.t('debugHelper.hackVueComponent.unhack') : i18n.t('debugHelper.hackVueComponent.hack'),
             icon: 'fa-regular fa-bug',
             callback: functionCall.toggleHackVueComponent
           },
-          toggleInspect: {
-            name: i18n.t('debugHelper.toggleInspect'),
-            icon: 'fa-regular fa-eye',
-            callback: functionCall.toggleInspect
-          },
           togglePerformanceObserver: {
-            name: i18n.t('debugHelper.togglePerformanceObserver'),
+            name: conf.performanceObserver.enabled ? i18n.t('debugHelper.performanceObserverStatus.off') : i18n.t('debugHelper.performanceObserverStatus.on'),
             icon: 'fa-regular fa-paint-brush',
             callback: functionCall.togglePerformanceObserver
           },
-          commonEndSeparator: '---------'
+          toggleAjaxCache: {
+            name: conf.ajaxCache.enabled ? i18n.t('debugHelper.ajaxCacheStatus.off') : i18n.t('debugHelper.ajaxCacheStatus.on'),
+            icon: 'fa-regular fa-database',
+            callback: functionCall.toggleAjaxCache
+          },
+          clearAjaxCache: {
+            name: i18n.t('debugHelper.clearAjaxCache'),
+            icon: 'fa-regular fa-database',
+            callback: functionCall.clearAjaxCache
+          },
+          measureSelectorInterval: {
+            name: i18n.t('debugHelper.measureSelectorInterval'),
+            icon: 'fa-regular fa-clock-o',
+            callback: functionCall.measureSelectorInterval
+          },
+          commonEndSeparator: '---------',
+          toggleInspect: {
+            name: conf.inspect.enabled ? i18n.t('debugHelper.inspectStatus.off') : i18n.t('debugHelper.inspectStatus.on'),
+            icon: 'fa-regular fa-eye',
+            callback: functionCall.toggleInspect
+          }
         }
 
         const menu = {
@@ -158,7 +279,7 @@ const inspect = {
           },
           items: {
             refresh: {
-              name: '刷新页面',
+              name: i18n.t('refreshPage'),
               icon: 'fa-refresh',
               callback: function (key, options) {
                 window.location.reload()
@@ -167,23 +288,10 @@ const inspect = {
             sep0: '---------',
             ...componentMenu,
             ...commonMenu,
-            // edit: {
-            //   name: '',
-            //   icon: 'edit',
-            //   // superseeds "global" callback
-            //   callback: function (itemKey, opt, e) {
-            //     var m = 'edit was clicked'
-            //     window.console && console.log(m)
-            //   }
-            // },
-            // cut: { name: 'Cut', icon: 'cut' },
-            // copy: { name: 'Copy', icon: 'copy' },
-            // paste: { name: 'Paste', icon: 'paste' },
-            // delete: { name: 'Delete', icon: 'delete' },
             quit: {
-              name: 'Quit',
-              icon:
-              function ($element, key, item) {
+              name: i18n.t('quit'),
+              icon: 'fa-close',
+              callback: function ($element, key, item) {
                 return 'context-menu-icon context-menu-icon-quit'
               }
             }

@@ -6,7 +6,7 @@
 // @name:ja      Vueデバッグ分析アシスタント
 // @namespace    https://github.com/xxxily/vue-debug-helper
 // @homepage     https://github.com/xxxily/vue-debug-helper
-// @version      0.0.15
+// @version      0.0.16
 // @description  Vue components debug helper
 // @description:en  Vue components debug helper
 // @description:zh  Vue组件探测、统计、分析辅助脚本
@@ -288,6 +288,17 @@ const inBrowser = typeof window !== 'undefined';
 
 function getVueDevtools () {
   return inBrowser && window.__VUE_DEVTOOLS_GLOBAL_HOOK__
+}
+
+function copyToClipboard (text) {
+  if (inBrowser) {
+    const input = document.createElement('input');
+    input.value = text;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
+  }
 }
 
 window.vueDebugHelper = {
@@ -978,6 +989,8 @@ var zhCN = {
   setting: '设置',
   hotkeys: '快捷键',
   donate: '赞赏',
+  quit: '退出',
+  refreshPage: '刷新页面',
   debugHelper: {
     viewVueDebugHelperObject: 'vueDebugHelper对象',
     componentsStatistics: '当前存活组件统计',
@@ -1012,7 +1025,15 @@ var zhCN = {
       unhack: '还原Vue.component'
     },
     toggleInspect: '切换Inspect',
+    inspectStatus: {
+      on: '开启Inspect',
+      off: '关闭Inspect'
+    },
     togglePerformanceObserver: '开启/关闭性能观察',
+    performanceObserverStatus: {
+      on: '开启性能观察',
+      off: '关闭性能观察'
+    },
     performanceObserverPrompt: {
       entryTypes: '输入要观察的类型，多个类型可用,或|分隔，支持的类型有：element,navigation,resource,mark,measure,paint,longtask',
       notSupport: '当前浏览器不支持性能观察'
@@ -1020,6 +1041,10 @@ var zhCN = {
     enableAjaxCacheTips: '接口缓存功能已开启',
     disableAjaxCacheTips: '接口缓存功能已关闭',
     toggleAjaxCache: '开启/关闭接口缓存',
+    ajaxCacheStatus: {
+      on: '开启接口缓存',
+      off: '关闭接口缓存'
+    },
     clearAjaxCache: '清空接口缓存数据',
     clearAjaxCacheTips: '接口缓存数据已清空',
     jaxCachePrompt: {
@@ -2388,6 +2413,9 @@ const performanceObserver = {
 
 const $ = window.$;
 let currentComponent = null;
+// let parentComponent = null
+// let grandParentComponent = null
+// let greatGrandParentComponent = null
 
 const inspect = {
   findComponentsByElement (el) {
@@ -2416,45 +2444,155 @@ const inspect = {
       return
     }
 
+    function createComponentMenuItem (vueComponent, deep = 0) {
+      let componentMenu = {};
+      if (vueComponent) {
+        componentMenu = {
+          consoleComponent: {
+            name: `查看组件：${vueComponent._componentName}`,
+            icon: 'fa-eye',
+            callback: function (key, options) {
+              debug.log(`[vueComponent] ${vueComponent._componentTag}`, vueComponent);
+            }
+          },
+          consoleComponentData: {
+            name: `查看组件数据：${vueComponent._componentName}`,
+            icon: 'fa-eye',
+            callback: function (key, options) {
+              debug.log(`[vueComponentData] ${vueComponent._componentTag}`, vueComponent.$data);
+            }
+          },
+          consoleComponentProps: {
+            name: `查看组件props：${vueComponent._componentName}`,
+            icon: 'fa-eye',
+            callback: function (key, options) {
+              debug.log(`[vueComponentProps] ${vueComponent._componentTag}`, vueComponent.$props);
+            }
+          },
+          consoleComponentChain: {
+            name: `查看组件调用链：${vueComponent._componentName}`,
+            icon: 'fa-eye',
+            callback: function (key, options) {
+              debug.log(`[vueComponentMethods] ${vueComponent._componentTag}`, vueComponent._componentChain);
+            }
+          }
+        };
+      }
+
+      if (vueComponent.$parent && deep <= 10) {
+        componentMenu.parentComponent = {
+          name: `查看父组件：${vueComponent.$parent._componentName}`,
+          icon: 'fa-eye',
+          items: createComponentMenuItem(vueComponent.$parent, deep + 1)
+        };
+      }
+
+      const file = vueComponent.options?.__file || vueComponent.$options?.__file || '';
+      let copyFilePath = {};
+      if (file) {
+        copyFilePath = {
+          copyFilePath: {
+            name: '复制组件文件路径',
+            icon: 'fa-copy',
+            callback: function (key, options) {
+              copyToClipboard(file);
+            }
+          }
+        };
+      }
+
+      componentMenu.componentAction = {
+        name: `相关操作：${vueComponent._componentName}`,
+        icon: 'fa-cog',
+        items: {
+          ...copyFilePath,
+          copyComponentName: {
+            name: `复制组件名称：${vueComponent._componentName}`,
+            icon: 'fa-copy',
+            callback: function (key, options) {
+              copyToClipboard(vueComponent._componentName);
+            }
+          },
+          copyComponentData: {
+            name: `复制组件$data：${vueComponent._componentName}`,
+            icon: 'fa-copy',
+            callback: function (key, options) {
+              const data = JSON.stringify(vueComponent.$data, null, 2);
+              copyToClipboard(data);
+              debug.log(`[vueComponentData] ${vueComponent._componentName}`, JSON.parse(data));
+              debug.log(data);
+            }
+          },
+          copyComponentProps: {
+            name: `复制组件$props：${vueComponent._componentName}`,
+            icon: 'fa-copy',
+            callback: function (key, options) {
+              const props = JSON.stringify(vueComponent.$props, null, 2);
+              copyToClipboard(props);
+              debug.log(`[vueComponentProps] ${vueComponent._componentName}`, JSON.parse(props));
+              debug.log(props);
+            }
+          },
+          // copyComponentTag: {
+          //   name: `复制组件标签：${vueComponent._componentTag}`,
+          //   icon: 'fa-copy',
+          //   callback: function (key, options) {
+          //     copyToClipboard(vueComponent._componentTag)
+          //   }
+          // },
+          copyComponentUid: {
+            name: `复制组件uid：${vueComponent._uid}`,
+            icon: 'fa-copy',
+            callback: function (key, options) {
+              copyToClipboard(vueComponent._uid);
+            }
+          },
+          copyComponentChian: {
+            name: '复制组件调用链',
+            icon: 'fa-copy',
+            callback: function (key, options) {
+              copyToClipboard(vueComponent._componentChain);
+              debug.log(`[vueComponentChain] ${vueComponent._componentName}`, vueComponent._componentChain);
+            }
+          },
+          findComponents: {
+            name: `查找组件：${vueComponent._componentName}`,
+            icon: 'fa-search',
+            callback: function (key, options) {
+              functionCall.findComponents(vueComponent._componentName);
+            }
+          },
+          printLifeCycleInfo: {
+            name: `打印生命周期信息：${vueComponent._componentName}`,
+            icon: 'fa-print',
+            callback: function (key, options) {
+              functionCall.printLifeCycleInfo(vueComponent._componentName);
+            }
+          },
+          blockComponents: {
+            name: `阻断组件：${vueComponent._componentName}`,
+            icon: 'fa-ban',
+            callback: function (key, options) {
+              functionCall.blockComponents(vueComponent._componentName);
+            }
+          }
+        }
+      };
+
+      return componentMenu
+    }
+
     $.contextMenu({
       selector: 'body.vue-debug-helper-inspect-mode',
       zIndex: 2147483647,
       build: function ($trigger, e) {
+        const conf = helper.config;
         const vueComponent = currentComponent ? currentComponent.__vue__ : null;
 
         let componentMenu = {};
         if (vueComponent) {
-          componentMenu = {
-            consoleComponent: {
-              name: `查看组件：${vueComponent._componentName}`,
-              icon: 'fa-eye',
-              callback: function (key, options) {
-                debug.log(`[vueComponent] ${vueComponent._componentTag}`, vueComponent);
-              }
-            },
-            consoleComponentData: {
-              name: `查看组件数据：${vueComponent._componentName}`,
-              icon: 'fa-eye',
-              callback: function (key, options) {
-                debug.log(`[vueComponentData] ${vueComponent._componentTag}`, vueComponent.$data);
-              }
-            },
-            consoleComponentProps: {
-              name: `查看组件props：${vueComponent._componentName}`,
-              icon: 'fa-eye',
-              callback: function (key, options) {
-                debug.log(`[vueComponentProps] ${vueComponent._componentTag}`, vueComponent.$props);
-              }
-            },
-            consoleComponentChain: {
-              name: `查看组件调用链：${vueComponent._componentName}`,
-              icon: 'fa-eye',
-              callback: function (key, options) {
-                debug.log(`[vueComponentMethods] ${vueComponent._componentTag}`, vueComponent._componentChain);
-              }
-            },
-            componentMenuSeparator: '---------'
-          };
+          componentMenu = createComponentMenuItem(vueComponent);
+          componentMenu.componentMenuSeparator = '---------';
         }
 
         const commonMenu = {
@@ -2479,16 +2617,6 @@ const inspect = {
             callback: functionCall.clearAll
           },
           statisticsSeparator: '---------',
-          printLifeCycleInfo: {
-            name: i18n.t('debugHelper.printLifeCycleInfo'),
-            icon: 'fa-regular fa-life-ring',
-            callback: functionCall.printLifeCycleInfo
-          },
-          notPrintLifeCycleInfo: {
-            name: i18n.t('debugHelper.notPrintLifeCycleInfo'),
-            icon: 'fa-regular fa-life-ring',
-            callback: functionCall.notPrintLifeCycleInfo
-          },
           findComponents: {
             name: i18n.t('debugHelper.findComponents'),
             icon: 'fa-regular fa-search',
@@ -2499,32 +2627,47 @@ const inspect = {
             icon: 'fa-regular fa-ban',
             callback: functionCall.blockComponents
           },
-          dd: {
-            name: i18n.t('debugHelper.dd'),
-            icon: 'fa-regular fa-arrows-alt',
-            callback: functionCall.dd
+          printLifeCycleInfo: {
+            name: conf.lifecycle.show ? i18n.t('debugHelper.notPrintLifeCycleInfo') : i18n.t('debugHelper.printLifeCycleInfo'),
+            icon: 'fa-regular fa-life-ring',
+            callback: conf.lifecycle.show ? functionCall.notPrintLifeCycleInfo : functionCall.printLifeCycleInfo
           },
-          undd: {
-            name: i18n.t('debugHelper.undd'),
+          dd: {
+            name: conf.dd.enabled ? i18n.t('debugHelper.undd') : i18n.t('debugHelper.dd'),
             icon: 'fa-regular fa-arrows-alt',
-            callback: functionCall.undd
+            callback: conf.dd.enabled ? functionCall.undd : functionCall.dd
           },
           toggleHackVueComponent: {
-            name: i18n.t('debugHelper.toggleHackVueComponent'),
+            name: conf.hackVueComponent ? i18n.t('debugHelper.hackVueComponent.unhack') : i18n.t('debugHelper.hackVueComponent.hack'),
             icon: 'fa-regular fa-bug',
             callback: functionCall.toggleHackVueComponent
           },
-          toggleInspect: {
-            name: i18n.t('debugHelper.toggleInspect'),
-            icon: 'fa-regular fa-eye',
-            callback: functionCall.toggleInspect
-          },
           togglePerformanceObserver: {
-            name: i18n.t('debugHelper.togglePerformanceObserver'),
+            name: conf.performanceObserver.enabled ? i18n.t('debugHelper.performanceObserverStatus.off') : i18n.t('debugHelper.performanceObserverStatus.on'),
             icon: 'fa-regular fa-paint-brush',
             callback: functionCall.togglePerformanceObserver
           },
-          commonEndSeparator: '---------'
+          toggleAjaxCache: {
+            name: conf.ajaxCache.enabled ? i18n.t('debugHelper.ajaxCacheStatus.off') : i18n.t('debugHelper.ajaxCacheStatus.on'),
+            icon: 'fa-regular fa-database',
+            callback: functionCall.toggleAjaxCache
+          },
+          clearAjaxCache: {
+            name: i18n.t('debugHelper.clearAjaxCache'),
+            icon: 'fa-regular fa-database',
+            callback: functionCall.clearAjaxCache
+          },
+          measureSelectorInterval: {
+            name: i18n.t('debugHelper.measureSelectorInterval'),
+            icon: 'fa-regular fa-clock-o',
+            callback: functionCall.measureSelectorInterval
+          },
+          commonEndSeparator: '---------',
+          toggleInspect: {
+            name: conf.inspect.enabled ? i18n.t('debugHelper.inspectStatus.off') : i18n.t('debugHelper.inspectStatus.on'),
+            icon: 'fa-regular fa-eye',
+            callback: functionCall.toggleInspect
+          }
         };
 
         const menu = {
@@ -2533,7 +2676,7 @@ const inspect = {
           },
           items: {
             refresh: {
-              name: '刷新页面',
+              name: i18n.t('refreshPage'),
               icon: 'fa-refresh',
               callback: function (key, options) {
                 window.location.reload();
@@ -2542,23 +2685,10 @@ const inspect = {
             sep0: '---------',
             ...componentMenu,
             ...commonMenu,
-            // edit: {
-            //   name: '',
-            //   icon: 'edit',
-            //   // superseeds "global" callback
-            //   callback: function (itemKey, opt, e) {
-            //     var m = 'edit was clicked'
-            //     window.console && console.log(m)
-            //   }
-            // },
-            // cut: { name: 'Cut', icon: 'cut' },
-            // copy: { name: 'Copy', icon: 'copy' },
-            // paste: { name: 'Paste', icon: 'paste' },
-            // delete: { name: 'Delete', icon: 'delete' },
             quit: {
-              name: 'Quit',
-              icon:
-              function ($element, key, item) {
+              name: i18n.t('quit'),
+              icon: 'fa-close',
+              callback: function ($element, key, item) {
                 return 'context-menu-icon context-menu-icon-quit'
               }
             }
@@ -2765,9 +2895,9 @@ const functionCall = {
     debug.log(i18n.t('debugHelper.clearAll'));
   },
 
-  printLifeCycleInfo () {
+  printLifeCycleInfo (str) {
     const lifecycleFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.lifecycleFilters'), helper.config.lifecycle.filters.join(','));
-    const componentFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.componentFilters'), helper.config.lifecycle.componentFilters.join(','));
+    const componentFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.componentFilters'), str || helper.config.lifecycle.componentFilters.join(','));
 
     if (lifecycleFilters !== null && componentFilters !== null) {
       debug.log(i18n.t('debugHelper.printLifeCycleInfo'));
@@ -2780,8 +2910,8 @@ const functionCall = {
     helper.methods.notPrintLifeCycleInfo();
   },
 
-  findComponents () {
-    const filters = window.prompt(i18n.t('debugHelper.findComponentsPrompt.filters'), helper.config.findComponentsFilters.join(','));
+  findComponents (str) {
+    const filters = window.prompt(i18n.t('debugHelper.findComponentsPrompt.filters'), str || helper.config.findComponentsFilters.join(','));
     if (filters !== null) {
       debug.log(i18n.t('debugHelper.findComponents'), helper.methods.findComponents(filters));
     }
@@ -2791,8 +2921,8 @@ const functionCall = {
     debug.log(i18n.t('debugHelper.findNotContainElementComponents'), helper.methods.findNotContainElementComponents());
   },
 
-  blockComponents () {
-    const filters = window.prompt(i18n.t('debugHelper.blockComponentsPrompt.filters'), helper.config.blockFilters.join(','));
+  blockComponents (str) {
+    const filters = window.prompt(i18n.t('debugHelper.blockComponentsPrompt.filters'), str || helper.config.blockFilters.join(','));
     if (filters !== null) {
       helper.methods.blockComponents(filters);
       debug.log(i18n.t('debugHelper.blockComponents'), filters);
@@ -2906,7 +3036,7 @@ const functionCall = {
       const selector2 = helper.config.measureSelectorInterval.selector2;
       const selectorArr = [selector1, selector2];
       selectorArr.forEach(selector => {
-        if (element.parentElement && element.parentElement.querySelector(selector)) {
+        if (selector && element.parentElement && element.parentElement.querySelector(selector)) {
           result[selector] = {
             time: Date.now(),
             element: element
@@ -2954,6 +3084,12 @@ const functionCall = {
   measureSelectorInterval () {
     const selector1 = window.prompt(i18n.t('debugHelper.measureSelectorIntervalPrompt.selector1'), helper.config.measureSelectorInterval.selector1);
     const selector2 = window.prompt(i18n.t('debugHelper.measureSelectorIntervalPrompt.selector2'), helper.config.measureSelectorInterval.selector2);
+
+    if (!selector1 && !selector2) {
+      helper.config.measureSelectorInterval.selector1 = '';
+      helper.config.measureSelectorInterval.selector2 = '';
+    }
+
     functionCall.addMeasureSelectorInterval(selector1, selector2);
   }
 };

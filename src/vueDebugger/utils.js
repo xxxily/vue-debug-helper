@@ -123,4 +123,15 @@ function getVueDevtools () {
   return inBrowser && window.__VUE_DEVTOOLS_GLOBAL_HOOK__
 }
 
-export { objSort, createEmptyData, toArrFilters, stringMatch, filtersMatch, inBrowser, getVueDevtools }
+function copyToClipboard (text) {
+  if (inBrowser) {
+    const input = document.createElement('input')
+    input.value = text
+    document.body.appendChild(input)
+    input.select()
+    document.execCommand('copy')
+    document.body.removeChild(input)
+  }
+}
+
+export { objSort, createEmptyData, toArrFilters, stringMatch, filtersMatch, inBrowser, getVueDevtools, copyToClipboard }
