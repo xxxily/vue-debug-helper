@@ -63,6 +63,37 @@ function toArrFilters (filter) {
 }
 
 /**
+ * 将某个过滤器的字符串添加到指定的过滤器集合里
+ * @param {object} obj helper.config
+ * @param {string} filtersName
+ * @param {string} str
+ * @returns
+ */
+function addToFilters (obj, filtersName, str) {
+  const strType = typeof str
+  if (!obj || !filtersName || !str || !(strType === 'string' || strType === 'number')) {
+    return
+  }
+
+  const filters = obj[filtersName]
+  if (!filters) {
+    obj[filtersName] = [str]
+  } else if (Array.isArray(filters)) {
+    if (filters.includes(str)) {
+      /* 将str提到最后 */
+      const index = filters.indexOf(str)
+      filters.splice(index, 1)
+      filters.push(str)
+    } else {
+      filters.push(str)
+    }
+
+    /* 去重 */
+    obj[filtersName] = Array.from(new Set(filters))
+  }
+}
+
+/**
  * 字符串过滤器和字符串的匹配方法
  * @param {string} filter -必选 过滤器的字符串
  * @param {string} str -必选 要跟过滤字符串进行匹配的字符串
@@ -134,4 +165,4 @@ function copyToClipboard (text) {
   }
 }
 
-export { objSort, createEmptyData, toArrFilters, stringMatch, filtersMatch, inBrowser, getVueDevtools, copyToClipboard }
+export { objSort, createEmptyData, toArrFilters, addToFilters, stringMatch, filtersMatch, inBrowser, getVueDevtools, copyToClipboard }

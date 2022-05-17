@@ -16,7 +16,8 @@ import cacheStore from './cacheStore'
 import performanceObserver from './performanceObserver'
 import inspect from './inspect'
 import {
-  toArrFilters
+  toArrFilters,
+  addToFilters
 } from './utils'
 import ready from '../libs/utils/ready'
 
@@ -90,8 +91,10 @@ const functionCall = {
   },
 
   printLifeCycleInfo (str) {
+    addToFilters(helper.config.lifecycle, 'componentFilters', str)
+
     const lifecycleFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.lifecycleFilters'), helper.config.lifecycle.filters.join(','))
-    const componentFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.componentFilters'), str || helper.config.lifecycle.componentFilters.join(','))
+    const componentFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.componentFilters'), helper.config.lifecycle.componentFilters.join(','))
 
     if (lifecycleFilters !== null && componentFilters !== null) {
       debug.log(i18n.t('debugHelper.printLifeCycleInfo'))
@@ -105,7 +108,9 @@ const functionCall = {
   },
 
   findComponents (str) {
-    const filters = window.prompt(i18n.t('debugHelper.findComponentsPrompt.filters'), str || helper.config.findComponentsFilters.join(','))
+    addToFilters(helper.config, 'findComponentsFilters', str)
+
+    const filters = window.prompt(i18n.t('debugHelper.findComponentsPrompt.filters'), helper.config.findComponentsFilters.join(','))
     if (filters !== null) {
       debug.log(i18n.t('debugHelper.findComponents'), helper.methods.findComponents(filters))
     }
@@ -116,7 +121,9 @@ const functionCall = {
   },
 
   blockComponents (str) {
-    const filters = window.prompt(i18n.t('debugHelper.blockComponentsPrompt.filters'), str || helper.config.blockFilters.join(','))
+    addToFilters(helper.config, 'blockFilters', str)
+
+    const filters = window.prompt(i18n.t('debugHelper.blockComponentsPrompt.filters'), helper.config.blockFilters.join(','))
     if (filters !== null) {
       helper.methods.blockComponents(filters)
       debug.log(i18n.t('debugHelper.blockComponents'), filters)

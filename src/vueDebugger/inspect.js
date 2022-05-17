@@ -98,6 +98,7 @@ const inspect = {
             name: '复制组件文件路径',
             icon: 'fa-copy',
             callback: function (key, options) {
+              debug.log(`[componentFilePath ${vueComponent._componentName}] ${file}`)
               copyToClipboard(file)
             }
           }
@@ -121,9 +122,9 @@ const inspect = {
             icon: 'fa-copy',
             callback: function (key, options) {
               const data = JSON.stringify(vueComponent.$data, null, 2)
-              copyToClipboard(data)
               debug.log(`[vueComponentData] ${vueComponent._componentName}`, JSON.parse(data))
               debug.log(data)
+              copyToClipboard(data)
             }
           },
           copyComponentProps: {
@@ -131,9 +132,9 @@ const inspect = {
             icon: 'fa-copy',
             callback: function (key, options) {
               const props = JSON.stringify(vueComponent.$props, null, 2)
-              copyToClipboard(props)
               debug.log(`[vueComponentProps] ${vueComponent._componentName}`, JSON.parse(props))
               debug.log(props)
+              copyToClipboard(props)
             }
           },
           // copyComponentTag: {
@@ -154,8 +155,8 @@ const inspect = {
             name: '复制组件调用链',
             icon: 'fa-copy',
             callback: function (key, options) {
-              copyToClipboard(vueComponent._componentChain)
               debug.log(`[vueComponentChain] ${vueComponent._componentName}`, vueComponent._componentChain)
+              copyToClipboard(vueComponent._componentChain)
             }
           },
           findComponents: {
@@ -223,17 +224,23 @@ const inspect = {
           findComponents: {
             name: i18n.t('debugHelper.findComponents'),
             icon: 'fa-regular fa-search',
-            callback: functionCall.findComponents
+            callback: () => {
+              functionCall.findComponents()
+            }
           },
           blockComponents: {
             name: i18n.t('debugHelper.blockComponents'),
             icon: 'fa-regular fa-ban',
-            callback: functionCall.blockComponents
+            callback: () => {
+              functionCall.blockComponents()
+            }
           },
           printLifeCycleInfo: {
             name: conf.lifecycle.show ? i18n.t('debugHelper.notPrintLifeCycleInfo') : i18n.t('debugHelper.printLifeCycleInfo'),
             icon: 'fa-regular fa-life-ring',
-            callback: conf.lifecycle.show ? functionCall.notPrintLifeCycleInfo : functionCall.printLifeCycleInfo
+            callback: () => {
+              conf.lifecycle.show ? functionCall.notPrintLifeCycleInfo() : functionCall.printLifeCycleInfo()
+            }
           },
           dd: {
             name: conf.dd.enabled ? i18n.t('debugHelper.undd') : i18n.t('debugHelper.dd'),

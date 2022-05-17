@@ -6,7 +6,7 @@
 // @name:ja      Vueデバッグ分析アシスタント
 // @namespace    https://github.com/xxxily/vue-debug-helper
 // @homepage     https://github.com/xxxily/vue-debug-helper
-// @version      0.0.16
+// @version      0.0.17
 // @description  Vue components debug helper
 // @description:en  Vue components debug helper
 // @description:zh  Vue组件探测、统计、分析辅助脚本
@@ -227,6 +227,37 @@ function toArrFilters (filter) {
   filter = filter.map(item => item.trim());
 
   return filter
+}
+
+/**
+ * 将某个过滤器的字符串添加到指定的过滤器集合里
+ * @param {object} obj helper.config
+ * @param {string} filtersName
+ * @param {string} str
+ * @returns
+ */
+function addToFilters (obj, filtersName, str) {
+  const strType = typeof str;
+  if (!obj || !filtersName || !str || !(strType === 'string' || strType === 'number')) {
+    return
+  }
+
+  const filters = obj[filtersName];
+  if (!filters) {
+    obj[filtersName] = [str];
+  } else if (Array.isArray(filters)) {
+    if (filters.includes(str)) {
+      /* 将str提到最后 */
+      const index = filters.indexOf(str);
+      filters.splice(index, 1);
+      filters.push(str);
+    } else {
+      filters.push(str);
+    }
+
+    /* 去重 */
+    obj[filtersName] = Array.from(new Set(filters));
+  }
 }
 
 /**
@@ -2495,6 +2526,7 @@ const inspect = {
             name: '复制组件文件路径',
             icon: 'fa-copy',
             callback: function (key, options) {
+              debug.log(`[componentFilePath ${vueComponent._componentName}] ${file}`);
               copyToClipboard(file);
             }
           }
@@ -2518,9 +2550,9 @@ const inspect = {
             icon: 'fa-copy',
             callback: function (key, options) {
               const data = JSON.stringify(vueComponent.$data, null, 2);
-              copyToClipboard(data);
               debug.log(`[vueComponentData] ${vueComponent._componentName}`, JSON.parse(data));
               debug.log(data);
+              copyToClipboard(data);
             }
           },
           copyComponentProps: {
@@ -2528,9 +2560,9 @@ const inspect = {
             icon: 'fa-copy',
             callback: function (key, options) {
               const props = JSON.stringify(vueComponent.$props, null, 2);
-              copyToClipboard(props);
               debug.log(`[vueComponentProps] ${vueComponent._componentName}`, JSON.parse(props));
               debug.log(props);
+              copyToClipboard(props);
             }
           },
           // copyComponentTag: {
@@ -2551,8 +2583,8 @@ const inspect = {
             name: '复制组件调用链',
             icon: 'fa-copy',
             callback: function (key, options) {
-              copyToClipboard(vueComponent._componentChain);
               debug.log(`[vueComponentChain] ${vueComponent._componentName}`, vueComponent._componentChain);
+              copyToClipboard(vueComponent._componentChain);
             }
           },
           findComponents: {
@@ -2620,17 +2652,23 @@ const inspect = {
           findComponents: {
             name: i18n.t('debugHelper.findComponents'),
             icon: 'fa-regular fa-search',
-            callback: functionCall.findComponents
+            callback: () => {
+              functionCall.findComponents();
+            }
           },
           blockComponents: {
             name: i18n.t('debugHelper.blockComponents'),
             icon: 'fa-regular fa-ban',
-            callback: functionCall.blockComponents
+            callback: () => {
+              functionCall.blockComponents();
+            }
           },
           printLifeCycleInfo: {
             name: conf.lifecycle.show ? i18n.t('debugHelper.notPrintLifeCycleInfo') : i18n.t('debugHelper.printLifeCycleInfo'),
             icon: 'fa-regular fa-life-ring',
-            callback: conf.lifecycle.show ? functionCall.notPrintLifeCycleInfo : functionCall.printLifeCycleInfo
+            callback: () => {
+              conf.lifecycle.show ? functionCall.notPrintLifeCycleInfo() : functionCall.printLifeCycleInfo();
+            }
           },
           dd: {
             name: conf.dd.enabled ? i18n.t('debugHelper.undd') : i18n.t('debugHelper.dd'),
@@ -2896,8 +2934,10 @@ const functionCall = {
   },
 
   printLifeCycleInfo (str) {
+    addToFilters(helper.config.lifecycle, 'componentFilters', str);
+
     const lifecycleFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.lifecycleFilters'), helper.config.lifecycle.filters.join(','));
-    const componentFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.componentFilters'), str || helper.config.lifecycle.componentFilters.join(','));
+    const componentFilters = window.prompt(i18n.t('debugHelper.printLifeCycleInfoPrompt.componentFilters'), helper.config.lifecycle.componentFilters.join(','));
 
     if (lifecycleFilters !== null && componentFilters !== null) {
       debug.log(i18n.t('debugHelper.printLifeCycleInfo'));
@@ -2911,7 +2951,9 @@ const functionCall = {
   },
 
   findComponents (str) {
-    const filters = window.prompt(i18n.t('debugHelper.findComponentsPrompt.filters'), str || helper.config.findComponentsFilters.join(','));
+    addToFilters(helper.config, 'findComponentsFilters', str);
+
+    const filters = window.prompt(i18n.t('debugHelper.findComponentsPrompt.filters'), helper.config.findComponentsFilters.join(','));
     if (filters !== null) {
       debug.log(i18n.t('debugHelper.findComponents'), helper.methods.findComponents(filters));
     }
@@ -2922,7 +2964,9 @@ const functionCall = {
   },
 
   blockComponents (str) {
-    const filters = window.prompt(i18n.t('debugHelper.blockComponentsPrompt.filters'), str || helper.config.blockFilters.join(','));
+    addToFilters(helper.config, 'blockFilters', str);
+
+    const filters = window.prompt(i18n.t('debugHelper.blockComponentsPrompt.filters'), helper.config.blockFilters.join(','));
     if (filters !== null) {
       helper.methods.blockComponents(filters);
       debug.log(i18n.t('debugHelper.blockComponents'), filters);
