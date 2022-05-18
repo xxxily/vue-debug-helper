@@ -14,11 +14,9 @@ import {
   copyToClipboard
 } from './utils'
 
+const overlaySelector = 'vue-debugger-overlay'
 const $ = window.$
 let currentComponent = null
-// let parentComponent = null
-// let grandParentComponent = null
-// let greatGrandParentComponent = null
 
 const inspect = {
   findComponentsByElement (el) {
@@ -82,7 +80,7 @@ const inspect = {
         }
       }
 
-      if (vueComponent.$parent && deep <= 10) {
+      if (vueComponent.$parent && deep <= 5) {
         componentMenu.parentComponent = {
           name: `查看父组件：${vueComponent.$parent._componentName}`,
           icon: 'fa-eye',
@@ -313,35 +311,64 @@ const inspect = {
   },
 
   setOverlay (el) {
-    let overlay = document.querySelector('#vue-debugger-overlay')
+    let overlay = document.querySelector('#' + overlaySelector)
     if (!overlay) {
       overlay = document.createElement('div')
-      overlay.id = 'vue-debugger-overlay'
-      overlay.style.position = 'fixed'
-      overlay.style.backgroundColor = 'rgba(65, 184, 131, 0.35)'
-      overlay.style.zIndex = 2147483647
-      overlay.style.pointerEvents = 'none'
+      overlay.id = overlaySelector
+
+      const infoBox = document.createElement('div')
+      infoBox.className = 'vue-debugger-component-info'
+
+      const styleDom = document.createElement('style')
+      styleDom.appendChild(document.createTextNode(`
+        #${overlaySelector} {
+          position: fixed;
+          z-index: 2147483647;
+          background-color: rgba(65, 184, 131, 0.15);
+          padding: 5px;
+          font-size: 12px;
+          pointer-events: none;
+          box-size: border-box;
+        }
+
+        #${overlaySelector} .vue-debugger-component-info {
+          position: absolute;
+          top: -26px;
+          left: 0;
+          line-height: 1.5;
+          display: inline-block;
+          padding: 2px 8px;
+          border-radius: 2px;
+          background-color: rgba(65, 184, 131, 0.35);
+          color: #F00;
+        }
+      `))
+
+      overlay.appendChild(infoBox)
+      overlay.appendChild(styleDom)
       document.body.appendChild(overlay)
     }
 
+    /* 批量设置样式，减少样式扰动 */
     const rect = el.getBoundingClientRect()
+    const overlayStyle = `
+      width: ${rect.width}px;
+      height: ${rect.height}px;
+      left: ${rect.x}px;
+      top: ${rect.y}px;
+      display: block;
+    `
+    overlay.setAttribute('style', overlayStyle)
 
-    overlay.style.width = rect.width + 'px'
-    overlay.style.height = rect.height + 'px'
-    overlay.style.left = rect.x + 'px'
-    overlay.style.top = rect.y + 'px'
-    overlay.style.display = 'block'
-
-    // overlay.parentElement.addEventListener('contextmenu', function (e) {
-    //   debug.log('overlay contextmenu')
-    //   e.preventDefault()
-    //   e.stopPropagation()
-    // }, true)
+    const vm = el.__vue__
+    if (vm) {
+      overlay.querySelector('.vue-debugger-component-info').innerHTML = `
+        ${vm._componentName || vm._componentTag || vm._uid}
+      `
+    }
 
     $(document.body).addClass('vue-debug-helper-inspect-mode')
-
     inspect.initContextMenu()
-    // console.log(el, rect, el.__vue__._componentTag)
   },
 
   clearOverlay () {
