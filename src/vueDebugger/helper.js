@@ -161,6 +161,20 @@ const methods = {
     }
   },
 
+  initComponentInfo (vm) {
+    if (vm && !vm._componentTag) {
+      const tag = vm.$vnode?.tag || vm.$options?._componentTag || vm._uid
+      vm._componentTag = tag
+      vm._componentName = isNaN(Number(tag)) ? tag.replace(/^vue-component-\d+-/, '') : 'anonymous-component'
+      vm._componentChain = this.getComponentChain(vm)
+
+      /* 判断是否为函数式组件，函数式组件无状态 (没有响应式数据)，也没有实例，也没生命周期概念 */
+      if (vm._componentName === 'anonymous-component' && !vm.$parent && !vm.$vnode) {
+        vm._componentName = 'functional-component'
+      }
+    }
+  },
+
   /**
    * 获取组件的调用链信息
    */

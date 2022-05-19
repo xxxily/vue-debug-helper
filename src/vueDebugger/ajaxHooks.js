@@ -14,6 +14,7 @@ import helper from './helper'
 import {
   filtersMatch
 } from './utils'
+import hookJs from '../libs/hookJs'
 
 /**
  * 判断是否符合进行缓存控制操作的条件
@@ -89,6 +90,14 @@ const ajaxHooks = {
     if (helper.config.ajaxCache.enabled) {
       ajaxHooks.hook(ajaxHooksWin)
     }
+
+    // hookJs.before(win, 'fetch', (args, parentObj, methodName, originMethod, execInfo, ctx) => {
+    //   debug.log('[ajaxHooks] fetch', args)
+    // })
+
+    // hookJs.after(win, 'fetch', async (args, parentObj, methodName, originMethod, execInfo, ctx) => {
+    //   debug.log('[ajaxHooks] fetch after', args, execInfo, await execInfo.result)
+    // })
 
     /* 定时清除接口的缓存数据，防止不断堆积 */
     setTimeout(() => {

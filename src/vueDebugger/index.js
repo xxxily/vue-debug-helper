@@ -42,6 +42,9 @@ function init (win) {
 
   registerStatus = 'initing'
 
+  /* 注册接口拦截功能和接近数据缓存功能 */
+  ajaxHooks.init(win)
+
   vueDetector(win, function (Vue) {
     /* 挂载到window上，方便通过控制台调用调试 */
     helper.Vue = Vue
@@ -54,9 +57,6 @@ function init (win) {
     if (helper.config.hackVueComponent) {
       vueHooks.hackVueComponent(Vue)
     }
-
-    /* 注册接口拦截功能和接近数据缓存功能 */
-    ajaxHooks.init(win)
 
     /* 注册性能观察的功能 */
     performanceObserver.init()
@@ -90,7 +90,6 @@ try {
   win = getPageWindowSync()
   if (win) {
     init(win)
-    debug.log('getPageWindowSync success')
   }
 } catch (e) {
   debug.error('getPageWindowSync failed', e)

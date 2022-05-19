@@ -41,21 +41,12 @@ function mixinRegister (Vue) {
   Vue.mixin({
     beforeCreate: function () {
       // const tag = this.$options?._componentTag || this.$vnode?.tag || this._uid
-      const tag = this.$vnode?.tag || this.$options?._componentTag || this._uid
-      const chain = helper.methods.getComponentChain(this)
-      this._componentTag = tag
-      this._componentChain = chain
-      this._componentName = isNaN(Number(tag)) ? tag.replace(/^vue-component-\d+-/, '') : 'anonymous-component'
-      this._createdTime = Date.now()
+      helper.methods.initComponentInfo(this)
 
+      this._createdTime = Date.now()
       /* 增加人类方便查看的时间信息 */
       const timeObj = new Date(this._createdTime)
       this._createdHumanTime = `${timeObj.getHours()}:${timeObj.getMinutes()}:${timeObj.getSeconds()}`
-
-      /* 判断是否为函数式组件，函数式组件无状态 (没有响应式数据)，也没有实例，也没生命周期概念 */
-      if (this._componentName === 'anonymous-component' && !this.$parent && !this.$vnode) {
-        this._componentName = 'functional-component'
-      }
 
       helper.components[this._uid] = this
 
@@ -74,7 +65,7 @@ function mixinRegister (Vue) {
         // 0 表示还没被销毁，duration可持续当当前查看时间
         duration: 0,
         component: this,
-        chain
+        chain: this._componentChain
       }
       helper.componentsSummary[this._uid] = componentSummary
 

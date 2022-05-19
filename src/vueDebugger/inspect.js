@@ -48,41 +48,43 @@ const inspect = {
     function createComponentMenuItem (vueComponent, deep = 0) {
       let componentMenu = {}
       if (vueComponent) {
+        helper.methods.initComponentInfo(vueComponent)
+
         componentMenu = {
           consoleComponent: {
-            name: `查看组件：${vueComponent._componentName}`,
+            name: `${i18n.t('contextMenu.consoleComponent')} <${vueComponent._componentName}>`,
             icon: 'fa-eye',
             callback: function (key, options) {
               debug.log(`[vueComponent] ${vueComponent._componentTag}`, vueComponent)
             }
           },
           consoleComponentData: {
-            name: `查看组件数据：${vueComponent._componentName}`,
+            name: `${i18n.t('contextMenu.consoleComponentData')} <${vueComponent._componentName}>`,
             icon: 'fa-eye',
             callback: function (key, options) {
               debug.log(`[vueComponentData] ${vueComponent._componentTag}`, vueComponent.$data)
             }
           },
           consoleComponentProps: {
-            name: `查看组件props：${vueComponent._componentName}`,
+            name: `${i18n.t('contextMenu.consoleComponentProps')} <${vueComponent._componentName}>`,
             icon: 'fa-eye',
             callback: function (key, options) {
               debug.log(`[vueComponentProps] ${vueComponent._componentTag}`, vueComponent.$props)
             }
-          },
-          consoleComponentChain: {
-            name: `查看组件调用链：${vueComponent._componentName}`,
-            icon: 'fa-eye',
-            callback: function (key, options) {
-              debug.log(`[vueComponentMethods] ${vueComponent._componentTag}`, vueComponent._componentChain)
-            }
           }
+          // consoleComponentChain: {
+          //   name: `${i18n.t('contextMenu.consoleComponentChain')} <${vueComponent._componentName}>`,
+          //   icon: 'fa-eye',
+          //   callback: function (key, options) {
+          //     debug.log(`[vueComponentMethods] ${vueComponent._componentTag}`, vueComponent._componentChain)
+          //   }
+          // }
         }
       }
 
       if (vueComponent.$parent && deep <= 5) {
         componentMenu.parentComponent = {
-          name: `查看父组件：${vueComponent.$parent._componentName}`,
+          name: `${i18n.t('contextMenu.consoleParentComponent')} <${vueComponent.$parent._componentName}>`,
           icon: 'fa-eye',
           items: createComponentMenuItem(vueComponent.$parent, deep + 1)
         }
@@ -93,7 +95,7 @@ const inspect = {
       if (file) {
         copyFilePath = {
           copyFilePath: {
-            name: '复制组件文件路径',
+            name: `${i18n.t('contextMenu.copyFilePath')}`,
             icon: 'fa-copy',
             callback: function (key, options) {
               debug.log(`[componentFilePath ${vueComponent._componentName}] ${file}`)
@@ -104,19 +106,19 @@ const inspect = {
       }
 
       componentMenu.componentAction = {
-        name: `相关操作：${vueComponent._componentName}`,
+        name: `${i18n.t('contextMenu.componentAction')} <${vueComponent._componentName}>`,
         icon: 'fa-cog',
         items: {
           ...copyFilePath,
           copyComponentName: {
-            name: `复制组件名称：${vueComponent._componentName}`,
+            name: `${i18n.t('contextMenu.copyComponentName')} <${vueComponent._componentName}>`,
             icon: 'fa-copy',
             callback: function (key, options) {
               copyToClipboard(vueComponent._componentName)
             }
           },
           copyComponentData: {
-            name: `复制组件$data：${vueComponent._componentName}`,
+            name: `${i18n.t('contextMenu.copyComponentData')} <${vueComponent._componentName}>`,
             icon: 'fa-copy',
             callback: function (key, options) {
               const data = JSON.stringify(vueComponent.$data, null, 2)
@@ -126,7 +128,7 @@ const inspect = {
             }
           },
           copyComponentProps: {
-            name: `复制组件$props：${vueComponent._componentName}`,
+            name: `${i18n.t('contextMenu.copyComponentProps')} <${vueComponent._componentName}>`,
             icon: 'fa-copy',
             callback: function (key, options) {
               const props = JSON.stringify(vueComponent.$props, null, 2)
@@ -136,21 +138,21 @@ const inspect = {
             }
           },
           // copyComponentTag: {
-          //   name: `复制组件标签：${vueComponent._componentTag}`,
+          //   name: `${i18n.t('contextMenu.copyComponentTag')} <${vueComponent._componentName}>`,
           //   icon: 'fa-copy',
           //   callback: function (key, options) {
           //     copyToClipboard(vueComponent._componentTag)
           //   }
           // },
           copyComponentUid: {
-            name: `复制组件uid：${vueComponent._uid}`,
+            name: `${i18n.t('contextMenu.copyComponentUid')} -> ${vueComponent._uid}`,
             icon: 'fa-copy',
             callback: function (key, options) {
               copyToClipboard(vueComponent._uid)
             }
           },
           copyComponentChian: {
-            name: '复制组件调用链',
+            name: `${i18n.t('contextMenu.copyComponentChian')}`,
             icon: 'fa-copy',
             callback: function (key, options) {
               debug.log(`[vueComponentChain] ${vueComponent._componentName}`, vueComponent._componentChain)
@@ -158,21 +160,21 @@ const inspect = {
             }
           },
           findComponents: {
-            name: `查找组件：${vueComponent._componentName}`,
+            name: `${i18n.t('contextMenu.findComponents')} <${vueComponent._componentName}>`,
             icon: 'fa-search',
             callback: function (key, options) {
               functionCall.findComponents(vueComponent._componentName)
             }
           },
           printLifeCycleInfo: {
-            name: `打印生命周期信息：${vueComponent._componentName}`,
+            name: `${i18n.t('contextMenu.printLifeCycleInfo')} <${vueComponent._componentName}>`,
             icon: 'fa-print',
             callback: function (key, options) {
               functionCall.printLifeCycleInfo(vueComponent._componentName)
             }
           },
           blockComponents: {
-            name: `阻断组件：${vueComponent._componentName}`,
+            name: `${i18n.t('contextMenu.blockComponents')} <${vueComponent._componentName}>`,
             icon: 'fa-ban',
             callback: function (key, options) {
               functionCall.blockComponents(vueComponent._componentName)
@@ -326,21 +328,30 @@ const inspect = {
           z-index: 2147483647;
           background-color: rgba(65, 184, 131, 0.15);
           padding: 5px;
-          font-size: 12px;
+          font-size: 11px;
           pointer-events: none;
           box-size: border-box;
+          border-radius: 3px;
+          overflow: visible;
         }
 
         #${overlaySelector} .vue-debugger-component-info {
           position: absolute;
-          top: -26px;
+          top: -30px;
           left: 0;
           line-height: 1.5;
           display: inline-block;
-          padding: 2px 8px;
-          border-radius: 2px;
-          background-color: rgba(65, 184, 131, 0.35);
-          color: #F00;
+          padding: 4px 8px;
+          border-radius: 3px;
+          background-color: #fff;
+          font-family: monospace; 
+          font-size: 11px;
+          color: rgb(51, 51, 51); 
+          text-align: center; 
+          border: 1px solid rgba(65, 184, 131, 0.5); 
+          background-clip: padding-box;
+          pointer-events: none;
+          white-space: nowrap;
         }
       `))
 
@@ -351,20 +362,29 @@ const inspect = {
 
     /* 批量设置样式，减少样式扰动 */
     const rect = el.getBoundingClientRect()
-    const overlayStyle = `
-      width: ${rect.width}px;
-      height: ${rect.height}px;
-      left: ${rect.x}px;
-      top: ${rect.y}px;
-      display: block;
-    `
+    const overlayStyle = [
+      `width: ${rect.width}px;`,
+      `height: ${rect.height}px;`,
+      `top: ${rect.top}px;`,
+      `left: ${rect.left}px;`,
+      'display: block;'
+    ].join(' ')
     overlay.setAttribute('style', overlayStyle)
 
     const vm = el.__vue__
     if (vm) {
-      overlay.querySelector('.vue-debugger-component-info').innerHTML = `
-        ${vm._componentName || vm._componentTag || vm._uid}
-      `
+      helper.methods.initComponentInfo(vm)
+      const name = vm._componentName || vm._componentTag || vm._uid
+      const infoBox = overlay.querySelector('.vue-debugger-component-info')
+
+      infoBox.innerHTML = [
+        '<span style="opacity: 0.6;">&lt;</span>',
+        `<span style="font-weight: bold; color: rgb(9, 171, 86);">${name}</span>`,
+        '<span style="opacity: 0.6;">&gt;</span>',
+        `<span style="opacity: 0.5; margin-left: 6px;">${Math.round(rect.width)}<span style="margin-right: 2px; margin-left: 2px;">×</span>${Math.round(rect.height)}</span>`
+      ].join('')
+
+      rect.y < 32 ? (infoBox.style.top = '0') : (infoBox.style.top = '-30px')
     }
 
     $(document.body).addClass('vue-debug-helper-inspect-mode')

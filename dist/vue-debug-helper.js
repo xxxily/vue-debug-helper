@@ -6,7 +6,7 @@
 // @name:ja      Vueデバッグ分析アシスタント
 // @namespace    https://github.com/xxxily/vue-debug-helper
 // @homepage     https://github.com/xxxily/vue-debug-helper
-// @version      0.0.18
+// @version      0.0.19
 // @description  Vue components debug helper
 // @description:en  Vue components debug helper
 // @description:zh  Vue组件探测、统计、分析辅助脚本
@@ -486,6 +486,20 @@ const methods = {
     }
   },
 
+  initComponentInfo (vm) {
+    if (vm && !vm._componentTag) {
+      const tag = vm.$vnode?.tag || vm.$options?._componentTag || vm._uid;
+      vm._componentTag = tag;
+      vm._componentName = isNaN(Number(tag)) ? tag.replace(/^vue-component-\d+-/, '') : 'anonymous-component';
+      vm._componentChain = this.getComponentChain(vm);
+
+      /* 判断是否为函数式组件，函数式组件无状态 (没有响应式数据)，也没有实例，也没生命周期概念 */
+      if (vm._componentName === 'anonymous-component' && !vm.$parent && !vm.$vnode) {
+        vm._componentName = 'functional-component';
+      }
+    }
+  },
+
   /**
    * 获取组件的调用链信息
    */
@@ -777,21 +791,12 @@ function mixinRegister (Vue) {
   Vue.mixin({
     beforeCreate: function () {
       // const tag = this.$options?._componentTag || this.$vnode?.tag || this._uid
-      const tag = this.$vnode?.tag || this.$options?._componentTag || this._uid;
-      const chain = helper.methods.getComponentChain(this);
-      this._componentTag = tag;
-      this._componentChain = chain;
-      this._componentName = isNaN(Number(tag)) ? tag.replace(/^vue-component-\d+-/, '') : 'anonymous-component';
-      this._createdTime = Date.now();
+      helper.methods.initComponentInfo(this);
 
+      this._createdTime = Date.now();
       /* 增加人类方便查看的时间信息 */
       const timeObj = new Date(this._createdTime);
       this._createdHumanTime = `${timeObj.getHours()}:${timeObj.getMinutes()}:${timeObj.getSeconds()}`;
-
-      /* 判断是否为函数式组件，函数式组件无状态 (没有响应式数据)，也没有实例，也没生命周期概念 */
-      if (this._componentName === 'anonymous-component' && !this.$parent && !this.$vnode) {
-        this._componentName = 'functional-component';
-      }
 
       helper.components[this._uid] = this;
 
@@ -810,7 +815,7 @@ function mixinRegister (Vue) {
         // 0 表示还没被销毁，duration可持续当当前查看时间
         duration: 0,
         component: this,
-        chain
+        chain: this._componentChain
       };
       helper.componentsSummary[this._uid] = componentSummary;
 
@@ -1092,6 +1097,24 @@ var zhCN = {
       enabled: '自动开启vue-devtools',
       disable: '禁止开启vue-devtools'
     }
+  },
+  contextMenu: {
+    consoleComponent: '查看组件',
+    consoleComponentData: '查看组件数据',
+    consoleComponentProps: '查看组件props',
+    consoleComponentChain: '查看组件调用链',
+    consoleParentComponent: '查看父组件',
+    componentAction: '相关操作',
+    copyFilePath: '复制文件路径',
+    copyComponentName: '复制组件名称',
+    copyComponentData: '复制组件$data',
+    copyComponentProps: '复制组件$props',
+    copyComponentTag: '复制组件标签',
+    copyComponentUid: '复制组件uid',
+    copyComponentChian: '复制组件调用链',
+    findComponents: '查找组件',
+    printLifeCycleInfo: '打印生命周期信息',
+    blockComponents: '阻断组件'
   }
 };
 
@@ -1101,6 +1124,8 @@ var enUS = {
   setting: 'settings',
   hotkeys: 'Shortcut keys',
   donate: 'donate',
+  quit: 'quit',
+  refreshPage: 'Refresh the page',
   debugHelper: {
     viewVueDebugHelperObject: 'vueDebugHelper object',
     componentsStatistics: 'Current surviving component statistics',
@@ -1108,12 +1133,87 @@ var enUS = {
     componentsSummaryStatisticsSort: 'All components mixed statistics',
     getDestroyByDuration: 'Component survival time information',
     clearAll: 'Clear statistics',
+    printLifeCycleInfo: 'Print component life cycle information',
+    notPrintLifeCycleInfo: 'Cancel the printing of component life cycle information',
+    printLifeCycleInfoPrompt: {
+      lifecycleFilters: 'Enter the lifecycle name to be printed, multiple available, or | separated, supported values: beforeCreate|created|beforeMount|mounted|beforeUpdate|updated|activated|deactivated|beforeDestroy|destroyed',
+      componentFilters: 'Enter the name of the component to be printed, multiple available, or | separated, if not input, print all components, add * after the string to perform fuzzy matching'
+    },
+    findComponents: 'Find Components',
+    findComponentsPrompt: {
+      filters: 'Enter the name of the component to find, or uid, multiple available, or | separated, followed by * to perform fuzzy matching'
+    },
+    findNotContainElementComponents: 'Find components that do not contain DOM objects',
+    blockComponents: 'Block the creation of components',
+    blockComponentsPrompt: {
+      filters: 'Enter the name of the component to be blocked, multiple available, or | separated, the input is empty to cancel the blocking, add * after the string to perform fuzzy matching'
+    },
     dd: 'Data injection (dd)',
     undd: 'Cancel data injection (undd)',
     ddPrompt: {
       filter: 'Component filter (if empty, inject all components)',
       count: 'Specify the number of repetitions of injected data (default 1024)'
+    },
+    toggleHackVueComponent: 'Rewrite/restore Vue.component',
+    hackVueComponent: {
+      hack: 'Rewrite Vue.component',
+      unhack: 'Restore Vue.component'
+    },
+    toggleInspect: 'Toggle Inspect',
+    inspectStatus: {
+      on: 'Enable Inspect',
+      off: 'Turn off Inspect'
+    },
+    togglePerformanceObserver: 'Turn on/off performance observation',
+    performanceObserverStatus: {
+      on: 'Enable performance observation',
+      off: 'Turn off performance observation'
+    },
+    performanceObserverPrompt: {
+      entryTypes: 'Enter the type to be observed, multiple types are available, or | separated, the supported types are: element, navigation, resource, mark, measure, paint, longtask',
+      notSupport: 'The current browser does not support performance observation'
+    },
+    enableAjaxCacheTips: 'The interface cache function is enabled',
+    disableAjaxCacheTips: 'The interface cache function has been closed',
+    toggleAjaxCache: 'Enable/disable interface cache',
+    ajaxCacheStatus: {
+      on: 'Enable interface cache',
+      off: 'Turn off the interface cache'
+    },
+    clearAjaxCache: 'Clear interface cache data',
+    clearAjaxCacheTips: 'The interface cache data has been cleared',
+    jaxCachePrompt: {
+      filters: 'Enter the interface address to be cached, multiple available, or | separated, followed by * to perform fuzzy matching',
+      expires: 'Enter the cache expiration time in minutes, the default is 1440 minutes (ie 24 hours)'
+    },
+    measureSelectorInterval: 'Measure selector time difference',
+    measureSelectorIntervalPrompt: {
+      selector1: 'input start selector',
+      selector2: 'input end selector'
+    },
+    selectorReadyTips: 'The element is ready',
+    devtools: {
+      enabled: 'Automatically enable vue-devtools',
+      disable: 'Disable to enable vue-devtools'
     }
+  },
+  contextMenu: {
+    consoleComponent: 'View component',
+    consoleComponentData: 'View component data',
+    consoleComponentProps: 'View component props',
+    consoleComponentChain: 'View the component call chain',
+    consoleParentComponent: 'View parent component',
+    componentAction: 'Related actions',
+    copyFilePath: 'Copy file path',
+    copyComponentName: 'Copy component name',
+    copyComponentData: 'Copy component $data',
+    copyComponentProps: 'Copy component $props',
+    copyComponentTag: 'Copy component tag',
+    copyComponentUid: 'Copy component uid',
+    copyComponentChian: 'Copy component call chain',
+    findComponents: 'Find Components',
+    printLifeCycleInfo: 'Print life cycle information',
+    blockComponents: 'Block Components'
   }
 };
 
@@ -1123,6 +1223,8 @@ var zhTW = {
   setting: '設置',
   hotkeys: '快捷鍵',
   donate: '讚賞',
+  quit: '退出',
+  refreshPage: '刷新頁面',
   debugHelper: {
     viewVueDebugHelperObject: 'vueDebugHelper對象',
     componentsStatistics: '當前存活組件統計',
@@ -1130,12 +1232,87 @@ var zhTW = {
     componentsSummaryStatisticsSort: '全部組件混合統計',
     getDestroyByDuration: '組件存活時間信息',
     clearAll: '清空統計信息',
+    printLifeCycleInfo: '打印組件生命週期信息',
+    notPrintLifeCycleInfo: '取消組件生命週期信息打印',
+    printLifeCycleInfoPrompt: {
+      lifecycleFilters: '輸入要打印的生命週期名稱，多個可用,或|分隔，支持的值：beforeCreate|created|beforeMount|mounted|beforeUpdate|updated|activated|deactivated|beforeDestroy|destroyed',
+      componentFilters: '輸入要打印的組件名稱，多個可用,或|分隔，不輸入則打印所有組件，字符串後面加*可執行模糊匹配'
+    },
+    findComponents: '查找組件',
+    findComponentsPrompt: {
+      filters: '輸入要查找的組件名稱，或uid，多個可用,或|分隔，字符串後面加*可執行模糊匹配'
+    },
+    findNotContainElementComponents: '查找不包含DOM對象的組件',
+    blockComponents: '阻斷組件的創建',
+    blockComponentsPrompt: {
+      filters: '輸入要阻斷的組件名稱，多個可用,或|分隔，輸入為空則取消阻斷，字符串後面加*可執行模糊匹配'
+    },
     dd: '數據注入（dd）',
     undd: '取消數據注入（undd）',
     ddPrompt: {
       filter: '組件過濾器（如果為空，則對所有組件注入）',
       count: '指定注入數據的重複次數（默認1024）'
+    },
+    toggleHackVueComponent: '改寫/還原Vue.component',
+    hackVueComponent: {
+      hack: '改寫Vue.component',
+      unhack: '還原Vue.component'
+    },
+    toggleInspect: '切換Inspect',
+    inspectStatus: {
+      on: '開啟Inspect',
+      off: '關閉Inspect'
+    },
+    togglePerformanceObserver: '開啟/關閉性能觀察',
+    performanceObserverStatus: {
+      on: '開啟性能觀察',
+      off: '關閉性能觀察'
+    },
+    performanceObserverPrompt: {
+      entryTypes: '輸入要觀察的類型，多個類型可用,或|分隔，支持的類型有：element,navigation,resource,mark,measure,paint,longtask',
+      notSupport: '當前瀏覽器不支持性能觀察'
+    },
+    enableAjaxCacheTips: '接口緩存功能已開啟',
+    disableAjaxCacheTips: '接口緩存功能已關閉',
+    toggleAjaxCache: '開啟/關閉接口緩存',
+    ajaxCacheStatus: {
+      on: '開啟接口緩存',
+      off: '關閉接口緩存'
+    },
+    clearAjaxCache: '清空接口緩存數據',
+    clearAjaxCacheTips: '接口緩存數據已清空',
+    jaxCachePrompt: {
+      filters: '輸入要緩存的接口地址，多個可用,或|分隔，字符串後面加*可執行模糊匹配',
+      expires: '輸入緩存過期時間，單位為分鐘，默認為1440分鐘（即24小時）'
+    },
+    measureSelectorInterval: '測量選擇器時間差',
+    measureSelectorIntervalPrompt: {
+      selector1: '輸入起始選擇器',
+      selector2: '輸入結束選擇器'
+    },
+    selectorReadyTips: '元素已就緒',
+    devtools: {
+      enabled: '自動開啟vue-devtools',
+      disable: '禁止開啟vue-devtools'
     }
+  },
+  contextMenu: {
+    consoleComponent: '查看組件',
+    consoleComponentData: '查看組件數據',
+    consoleComponentProps: '查看組件props',
+    consoleComponentChain: '查看組件調用鏈',
+    consoleParentComponent: '查看父組件',
+    componentAction: '相關操作',
+    copyFilePath: '複製文件路徑',
+    copyComponentName: '複製組件名稱',
+    copyComponentData: '複製組件$data',
+    copyComponentProps: '複製組件$props',
+    copyComponentTag: '複製組件標籤',
+    copyComponentUid: '複製組件uid',
+    copyComponentChian: '複製組件調用鏈',
+    findComponents: '查找組件',
+    printLifeCycleInfo: '打印生命週期信息',
+    blockComponents: '阻斷組件'
   }
 };
 
@@ -2381,6 +2558,14 @@ const ajaxHooks = {
       ajaxHooks.hook(ajaxHooksWin);
     }
 
+    // hookJs.before(win, 'fetch', (args, parentObj, methodName, originMethod, execInfo, ctx) => {
+    //   debug.log('[ajaxHooks] fetch', args)
+    // })
+
+    // hookJs.after(win, 'fetch', async (args, parentObj, methodName, originMethod, execInfo, ctx) => {
+    //   debug.log('[ajaxHooks] fetch after', args, execInfo, await execInfo.result)
+    // })
+
     /* 定时清除接口的缓存数据，防止不断堆积 */
     setTimeout(() => {
       cacheStore.cleanCache(helper.config.ajaxCache.expires);
@@ -2476,41 +2661,43 @@ const inspect = {
     function createComponentMenuItem (vueComponent, deep = 0) {
       let componentMenu = {};
       if (vueComponent) {
+        helper.methods.initComponentInfo(vueComponent);
+
         componentMenu = {
           consoleComponent: {
-            name: `查看组件：${vueComponent._componentName}`,
+            name: `${i18n.t('contextMenu.consoleComponent')} <${vueComponent._componentName}>`,
             icon: 'fa-eye',
             callback: function (key, options) {
               debug.log(`[vueComponent] ${vueComponent._componentTag}`, vueComponent);
             }
           },
           consoleComponentData: {
-            name: `查看组件数据：${vueComponent._componentName}`,
+            name: `${i18n.t('contextMenu.consoleComponentData')} <${vueComponent._componentName}>`,
             icon: 'fa-eye',
             callback: function (key, options) {
               debug.log(`[vueComponentData] ${vueComponent._componentTag}`, vueComponent.$data);
             }
           },
           consoleComponentProps: {
-            name: `查看组件props：${vueComponent._componentName}`,
+            name: `${i18n.t('contextMenu.consoleComponentProps')} <${vueComponent._componentName}>`,
             icon: 'fa-eye',
             callback: function (key, options) {
               debug.log(`[vueComponentProps] ${vueComponent._componentTag}`, vueComponent.$props);
             }
-          },
-          consoleComponentChain: {
-            name: `查看组件调用链：${vueComponent._componentName}`,
-            icon: 'fa-eye',
-            callback: function (key, options) {
-              debug.log(`[vueComponentMethods] ${vueComponent._componentTag}`, vueComponent._componentChain);
-            }
           }
+          // consoleComponentChain: {
+          //   name: `${i18n.t('contextMenu.consoleComponentChain')} <${vueComponent._componentName}>`,
+          //   icon: 'fa-eye',
+          //   callback: function (key, options) {
+          //     debug.log(`[vueComponentMethods] ${vueComponent._componentTag}`, vueComponent._componentChain)
+          //   }
+          // }
         };
       }
 
       if (vueComponent.$parent && deep <= 5) {
         componentMenu.parentComponent = {
-          name: `查看父组件：${vueComponent.$parent._componentName}`,
+          name: `${i18n.t('contextMenu.consoleParentComponent')} <${vueComponent.$parent._componentName}>`,
           icon: 'fa-eye',
           items: createComponentMenuItem(vueComponent.$parent, deep + 1)
         };
@@ -2521,7 +2708,7 @@ const inspect = {
       if (file) {
         copyFilePath = {
           copyFilePath: {
-            name: '复制组件文件路径',
+            name: `${i18n.t('contextMenu.copyFilePath')}`,
             icon: 'fa-copy',
             callback: function (key, options) {
               debug.log(`[componentFilePath ${vueComponent._componentName}] ${file}`);
@@ -2532,19 +2719,19 @@ const inspect = {
       }
 
       componentMenu.componentAction = {
-        name: `相关操作：${vueComponent._componentName}`,
+        name: `${i18n.t('contextMenu.componentAction')} <${vueComponent._componentName}>`,
         icon: 'fa-cog',
         items: {
           ...copyFilePath,
           copyComponentName: {
-            name: `复制组件名称：${vueComponent._componentName}`,
+            name: `${i18n.t('contextMenu.copyComponentName')} <${vueComponent._componentName}>`,
             icon: 'fa-copy',
             callback: function (key, options) {
               copyToClipboard(vueComponent._componentName);
             }
           },
           copyComponentData: {
-            name: `复制组件$data：${vueComponent._componentName}`,
+            name: `${i18n.t('contextMenu.copyComponentData')} <${vueComponent._componentName}>`,
             icon: 'fa-copy',
             callback: function (key, options) {
               const data = JSON.stringify(vueComponent.$data, null, 2);
@@ -2554,7 +2741,7 @@ const inspect = {
             }
           },
           copyComponentProps: {
-            name: `复制组件$props：${vueComponent._componentName}`,
+            name: `${i18n.t('contextMenu.copyComponentProps')} <${vueComponent._componentName}>`,
             icon: 'fa-copy',
             callback: function (key, options) {
               const props = JSON.stringify(vueComponent.$props, null, 2);
@@ -2564,21 +2751,21 @@ const inspect = {
             }
           },
           // copyComponentTag: {
-          //   name: `复制组件标签：${vueComponent._componentTag}`,
+          //   name: `${i18n.t('contextMenu.copyComponentTag')} <${vueComponent._componentName}>`,
           //   icon: 'fa-copy',
           //   callback: function (key, options) {
           //     copyToClipboard(vueComponent._componentTag)
           //   }
           // },
           copyComponentUid: {
-            name: `复制组件uid：${vueComponent._uid}`,
+            name: `${i18n.t('contextMenu.copyComponentUid')} -> ${vueComponent._uid}`,
             icon: 'fa-copy',
             callback: function (key, options) {
               copyToClipboard(vueComponent._uid);
             }
           },
           copyComponentChian: {
-            name: '复制组件调用链',
+            name: `${i18n.t('contextMenu.copyComponentChian')}`,
             icon: 'fa-copy',
             callback: function (key, options) {
               debug.log(`[vueComponentChain] ${vueComponent._componentName}`, vueComponent._componentChain);
@@ -2586,21 +2773,21 @@ const inspect = {
             }
           },
           findComponents: {
-            name: `查找组件：${vueComponent._componentName}`,
+            name: `${i18n.t('contextMenu.findComponents')} <${vueComponent._componentName}>`,
             icon: 'fa-search',
             callback: function (key, options) {
               functionCall.findComponents(vueComponent._componentName);
             }
           },
           printLifeCycleInfo: {
-            name: `打印生命周期信息：${vueComponent._componentName}`,
+            name: `${i18n.t('contextMenu.printLifeCycleInfo')} <${vueComponent._componentName}>`,
             icon: 'fa-print',
             callback: function (key, options) {
               functionCall.printLifeCycleInfo(vueComponent._componentName);
             }
           },
           blockComponents: {
-            name: `阻断组件：${vueComponent._componentName}`,
+            name: `${i18n.t('contextMenu.blockComponents')} <${vueComponent._componentName}>`,
             icon: 'fa-ban',
             callback: function (key, options) {
               functionCall.blockComponents(vueComponent._componentName);
@@ -2754,21 +2941,30 @@ const inspect = {
           z-index: 2147483647;
           background-color: rgba(65, 184, 131, 0.15);
           padding: 5px;
-          font-size: 12px;
+          font-size: 11px;
           pointer-events: none;
           box-size: border-box;
+          border-radius: 3px;
+          overflow: visible;
         }
 
         #${overlaySelector} .vue-debugger-component-info {
           position: absolute;
-          top: -26px;
+          top: -30px;
           left: 0;
           line-height: 1.5;
           display: inline-block;
-          padding: 2px 8px;
-          border-radius: 2px;
-          background-color: rgba(65, 184, 131, 0.35);
-          color: #F00;
+          padding: 4px 8px;
+          border-radius: 3px;
+          background-color: #fff;
+          font-family: monospace; 
+          font-size: 11px;
+          color: rgb(51, 51, 51); 
+          text-align: center; 
+          border: 1px solid rgba(65, 184, 131, 0.5); 
+          background-clip: padding-box;
+          pointer-events: none;
+          white-space: nowrap;
         }
       `));
 
@@ -2779,20 +2975,29 @@ const inspect = {
 
     /* 批量设置样式，减少样式扰动 */
     const rect = el.getBoundingClientRect();
-    const overlayStyle = `
-      width: ${rect.width}px;
-      height: ${rect.height}px;
-      left: ${rect.x}px;
-      top: ${rect.y}px;
-      display: block;
-    `;
+    const overlayStyle = [
+      `width: ${rect.width}px;`,
+      `height: ${rect.height}px;`,
+      `top: ${rect.top}px;`,
+      `left: ${rect.left}px;`,
+      'display: block;'
+    ].join(' ');
     overlay.setAttribute('style', overlayStyle);
 
     const vm = el.__vue__;
     if (vm) {
-      overlay.querySelector('.vue-debugger-component-info').innerHTML = `
-        ${vm._componentName || vm._componentTag || vm._uid}
-      `;
+      helper.methods.initComponentInfo(vm);
+      const name = vm._componentName || vm._componentTag || vm._uid;
+      const infoBox = overlay.querySelector('.vue-debugger-component-info');
+
+      infoBox.innerHTML = [
+        '<span style="opacity: 0.6;">&lt;</span>',
+        `<span style="font-weight: bold; color: rgb(9, 171, 86);">${name}</span>`,
+        '<span style="opacity: 0.6;">&gt;</span>',
+        `<span style="opacity: 0.5; margin-left: 6px;">${Math.round(rect.width)}<span style="margin-right: 2px; margin-left: 2px;">×</span>${Math.round(rect.height)}</span>`
+      ].join('');
+
+      rect.y < 32 ? (infoBox.style.top = '0') : (infoBox.style.top = '-30px');
     }
 
     $(document.body).addClass('vue-debug-helper-inspect-mode');
@@ -2892,6 +3097,14 @@ function ready (selector, fn, shadowRoot) {
  */
 
 const functionCall = {
+  toggleInspect () {
+    helper.config.inspect.enabled = !helper.config.inspect.enabled;
+    debug.log(`${i18n.t('debugHelper.toggleInspect')} success (${helper.config.inspect.enabled})`);
+
+    if (!helper.config.inspect.enabled) {
+      inspect.clearOverlay();
+    }
+  },
   viewVueDebugHelperObject () {
     debug.log(i18n.t('debugHelper.viewVueDebugHelperObject'), helper);
   },
@@ -3018,15 +3231,6 @@ const functionCall = {
   toggleHackVueComponent () {
     helper.config.hackVueComponent ? vueHooks.unHackVueComponent() : vueHooks.hackVueComponent();
     helper.config.hackVueComponent = !helper.config.hackVueComponent;
-  },
-
-  toggleInspect () {
-    helper.config.inspect.enabled = !helper.config.inspect.enabled;
-    debug.log(`${i18n.t('debugHelper.toggleInspect')} success (${helper.config.inspect.enabled})`);
-
-    if (!helper.config.inspect.enabled) {
-      inspect.clearOverlay();
-    }
   },
 
   togglePerformanceObserver () {
@@ -4080,6 +4284,9 @@ function init (win) {
 
   registerStatus = 'initing';
 
+  /* 注册接口拦截功能和接近数据缓存功能 */
+  ajaxHooks.init(win);
+
   vueDetect(win, function (Vue) {
     /* 挂载到window上，方便通过控制台调用调试 */
     helper.Vue = Vue;
@@ -4092,9 +4299,6 @@ function init (win) {
     if (helper.config.hackVueComponent) {
       vueHooks.hackVueComponent(Vue);
     }
-
-    /* 注册接口拦截功能和接近数据缓存功能 */
-    ajaxHooks.init(win);
 
     /* 注册性能观察的功能 */
     performanceObserver.init();
@@ -4128,7 +4332,6 @@ try {
   win$1 = getPageWindowSync();
   if (win$1) {
     init(win$1);
-    debug.log('getPageWindowSync success');
   }
 } catch (e) {
   debug.error('getPageWindowSync failed', e);

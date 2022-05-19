@@ -76,5 +76,23 @@ export default {
       enabled: '自动开启vue-devtools',
       disable: '禁止开启vue-devtools'
     }
+  },
+  contextMenu: {
+    consoleComponent: '查看组件',
+    consoleComponentData: '查看组件数据',
+    consoleComponentProps: '查看组件props',
+    consoleComponentChain: '查看组件调用链',
+    consoleParentComponent: '查看父组件',
+    componentAction: '相关操作',
+    copyFilePath: '复制文件路径',
+    copyComponentName: '复制组件名称',
+    copyComponentData: '复制组件$data',
+    copyComponentProps: '复制组件$props',
+    copyComponentTag: '复制组件标签',
+    copyComponentUid: '复制组件uid',
+    copyComponentChian: '复制组件调用链',
+    findComponents: '查找组件',
+    printLifeCycleInfo: '打印生命周期信息',
+    blockComponents: '阻断组件'
   }
 }
