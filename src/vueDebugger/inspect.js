@@ -40,6 +40,17 @@ const inspect = {
     return result
   },
 
+  getComponentInstance (el) {
+    let vueComponent = el && el.__vue__ ? el.__vue__ : null
+
+    /* 忽略transition */
+    if (vueComponent && vueComponent?.$options._componentTag === 'transition' && vueComponent.$parent) {
+      vueComponent = vueComponent.$parent
+    }
+
+    return vueComponent
+  },
+
   initContextMenu () {
     if (this._hasInitContextMenu_) {
       return
@@ -191,7 +202,7 @@ const inspect = {
       zIndex: 2147483647,
       build: function ($trigger, e) {
         const conf = helper.config
-        const vueComponent = currentComponent ? currentComponent.__vue__ : null
+        const vueComponent = inspect.getComponentInstance(currentComponent)
 
         let componentMenu = {}
         if (vueComponent) {
@@ -371,7 +382,7 @@ const inspect = {
     ].join(' ')
     overlay.setAttribute('style', overlayStyle)
 
-    const vm = el.__vue__
+    const vm = inspect.getComponentInstance(el)
     if (vm) {
       helper.methods.initComponentInfo(vm)
       const name = vm._componentName || vm._componentTag || vm._uid

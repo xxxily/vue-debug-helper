@@ -6,7 +6,7 @@
 // @name:ja      Vueデバッグ分析アシスタント
 // @namespace    https://github.com/xxxily/vue-debug-helper
 // @homepage     https://github.com/xxxily/vue-debug-helper
-// @version      0.0.19
+// @version      0.0.20
 // @description  Vue components debug helper
 // @description:en  Vue components debug helper
 // @description:zh  Vue组件探测、统计、分析辅助脚本
@@ -2275,6 +2275,165 @@ function Proxy$1 (proxy, win) {
 }
 
 /*!
+ * @name         fetch-proxy.js
+ * @description  fetch请求hook，用法保持跟 https://github.com/wendux/Ajax-hook 的xhr-proxy一致，以便支持fetch请求的监听和修改
+ * @version      0.0.1
+ * @author       xxxily
+ * @date         2022/05/20 16:18
+ * @github       https://github.com/xxxily
+ */
+
+/**
+ * 虽然此库用法保持跟Ajax-hook一致，但由于fetch最终对请求结果的消费方式与XMLHttpRequest不一样，
+ * 所以在进行hook操作时必须加以区分
+ *
+ * 具体请参考：
+ * https://www.ruanyifeng.com/blog/2020/12/fetch-tutorial.html
+ *
+ * 为了区别判断，将在onRequest, onResponse, onError的第三个参数标识是否为fetch请求，如果为true，则说明是是fetch请求
+ * 然后按需对fetch对象进行区分处理即可
+ */
+
+const realFetch = '_rFetch_';
+
+function makeHandler$1 (resolve, reject, next) {
+  return Object.create({
+    resolve,
+    reject,
+    next
+  })
+}
+
+function fetchProxy (proxy = {}, win) {
+  win = win || window;
+  win[realFetch] = win[realFetch] || win.fetch;
+
+  const { onRequest, onResponse, onError } = proxy;
+
+  function customFetch () {
+    /**
+     * 提前锁定fetch，防止在onRequest进行异步操作时，
+     * 外部触发了unFetchHook，再去找win[realFetch]已经查无此fetch了
+     */
+    const fetch = win[realFetch] || win.fetch;
+
+    const t = this;
+    let fetchResolve = function () {};
+    let fetchReject = function () {};
+    const args = arguments;
+    const config = args[1] || {};
+
+    /* 保持config参数结构跟Ajax-hook一致 */
+    config.url = args[0];
+    config.headers = config.headers || {};
+    if (!config.method) {
+      config.method = 'GET';
+    } else {
+      config.method = config.method.toUpperCase();
+    }
+
+    /* 发起真实请求 */
+    async function gotoFetch (config) {
+      const url = config.url;
+      // delete config.url
+      const args = [url, config];
+
+      if (fetch === customFetch) {
+        throw new Error('[fetch loop] fetch is equal to customFetch')
+      }
+
+      const response = await fetch.apply(t, args).catch((err) => {
+        if (onError instanceof Function) {
+          const errorHandler = makeHandler$1(fetchResolve, fetchReject, function (err) { fetchReject(err); });
+          onError(err, errorHandler, true);
+        } else {
+          throw err
+        }
+      });
+
+      if (onResponse instanceof Function) {
+        const responseHandler = makeHandler$1(fetchResolve, fetchReject, function (response) { fetchResolve(response); });
+
+        response.config = config;
+        onResponse(response, responseHandler, true);
+      } else {
+        /* 完成请求 */
+        fetchResolve(response);
+      }
+    }
+
+    /* 判断由谁来发起真实的请求 */
+    if (onRequest instanceof Function) {
+      const requestHandler = makeHandler$1(fetchResolve, fetchReject, function (config) { gotoFetch(config); });
+      onRequest(config, requestHandler, true);
+    } else {
+      gotoFetch(config);
+    }
+
+    /* 返回个空的promise，让gotoFetch进行真实的请求处理，并进行promise控制 */
+    return new Promise((resolve, reject) => {
+      fetchResolve = function (result) { resolve(result); };
+      fetchReject = function (err) { reject(err); };
+    })
+  }
+
+  win.fetch = customFetch;
+}
+
+function unFetchProxy (win) {
+  win = win || window;
+  if (win[realFetch]) {
+    win.fetch = win[realFetch];
+    delete win[realFetch];
+  }
+}
+
+/* 使用示例 */
+// fetchProxy({
+//   onRequest: async (config, handler, isFetch) => {
+//     console.log('[fetchHooks onRequest]', config.url, config)
+//     handler.next(config)
+//   },
+//   onError: (err, handler, isFetch) => {
+//     handler.next(err)
+//   },
+//   onResponse: async (response, handler, isFetch) => {
+//     console.log('[fetchHooks onResponse]', response)
+
+//     /* 当和Ajax-hook混合使用时，需要判断isFetch，进行区分处理 */
+//     if (isFetch) {
+//       const res = response.clone()
+//       const result = await res.json().catch((err) => {
+//         // 解析出错，忽略报错
+//         if (err) {}
+//       })
+//       console.log('[fetchHooks onResponse json]', result)
+//     }
+
+//     handler.next(response)
+//   }
+// }, window)
+
+/*!
+ * @name         fetch-proxy.js
+ * @description  fetch请求hook，用法保持跟 https://github.com/wendux/Ajax-hook 的xhr-proxy一致，以便支持fetch请求的监听和修改
+ * @version      0.0.1
+ * @author       xxxily
+ * @date         2022/05/20 16:18
+ * @github       https://github.com/xxxily
+ */
+
+function networkProxy (proxyConf = {}, win) {
+  proxy(proxyConf, win);
+  fetchProxy(proxyConf, win);
+}
+
+function unNetworkProxy (win) {
+  unProxy(win);
+  unFetchProxy(win);
+}
+
+/*!
  * @name         cacheStore.js
  * @description  接口请求缓存存储管理模块
  * @version      0.0.1
@@ -2305,13 +2464,18 @@ function createHash (config) {
     url = url.replace(/=\d{13}/, '=cache');
   }
 
-  let hashStr = url;
+  let hashStr = url + config.method;
 
   if (config.method.toUpperCase() === 'POST') {
     hashStr += JSON.stringify(config.data) + JSON.stringify(config.body);
   }
 
   const hash = md5(hashStr);
+
+  // if (url.includes('weixin.qq.com')) {
+  //   hash = md5(config.url.replace(/\?\S+/, ''))
+  // }
+
   config._hash_ = hash;
 
   return hash
@@ -2336,16 +2500,30 @@ class CacheStore {
     return data
   }
 
-  async setCache (response, filter) {
+  async setCache (response, isFetch) {
     const headers = response.headers || {};
-    if (String(headers['content-type']).includes(filter || 'application/json')) {
+    let isJsonResult = String(headers['content-type']).includes('application/json');
+
+    let resData = response.response || null;
+    if (isFetch && response.clone) {
+      const res = response.clone();
+      const resJson = await res.json().catch((err) => {
+      });
+
+      if (resJson) {
+        isJsonResult = true;
+        resData = JSON.stringify(resJson);
+      }
+    }
+
+    if (resData && isJsonResult) {
       const hash = createHash(response.config);
-      await this.store.setItem(hash, response.response);
+      await this.store.setItem(hash, resData);
 
       /* 设置缓存的时候顺便更新缓存相关的基础信息，注意，该信息并不能100%被同步到本地 */
       await this.updateCacheInfo(response.config);
 
-      debug.log(`[cacheStore setCache] ${response.config.url}`, response);
+      debug.log(`[cacheStore setCache][${hash}] ${response.config.url}`, response);
     }
   }
 
@@ -2501,8 +2679,8 @@ let ajaxHooksWin = window;
 
 const ajaxHooks = {
   hook (win = ajaxHooksWin) {
-    proxy({
-      onRequest: async (config, handler) => {
+    networkProxy({
+      onRequest: async (config, handler, isFetch) => {
         let hitCache = false;
 
         if (useCache(config)) {
@@ -2513,12 +2691,24 @@ const ajaxHooks = {
             const isExpires = Date.now() - cacheInfo.cacheTime > helper.config.ajaxCache.expires;
 
             if (!isExpires) {
-              handler.resolve({
-                config: config,
-                status: 200,
-                headers: { 'content-type': 'application/json' },
-                response: cache
-              });
+              if (isFetch) {
+                const customResponse = new Response(cache, {
+                  status: 200,
+                  statusText: 'ok',
+                  url: config.url,
+                  headers: new Headers({
+                    'Content-Type': 'application/json'
+                  })
+                });
+                handler.resolve(customResponse);
+              } else {
+                handler.resolve({
+                  config: config,
+                  status: 200,
+                  headers: { 'content-type': 'application/json' },
+                  response: cache
+                });
+              }
 
               hitCache = true;
             }
@@ -2526,20 +2716,21 @@ const ajaxHooks = {
         }
 
         if (hitCache) {
-          debug.warn(`[ajaxHooks] use cache:${config.method} ${config.url}`, config);
+          const fetchTips = isFetch ? 'fetch ' : '';
+          debug.warn(`[ajaxHooks] use cache:${fetchTips}${config.method} ${config.url}`, config);
         } else {
           handler.next(config);
         }
       },
 
-      onError: (err, handler) => {
+      onError: (err, handler, isFetch) => {
         handler.next(err);
       },
 
-      onResponse: async (response, handler) => {
+      onResponse: async (response, handler, isFetch) => {
         if (useCache(response.config)) {
           // 加入缓存
-          cacheStore.setCache(response, 'application/json');
+          cacheStore.setCache(response, isFetch);
         }
 
         handler.next(response);
@@ -2548,7 +2739,7 @@ const ajaxHooks = {
   },
 
   unHook (win = ajaxHooksWin) {
-    unProxy(win);
+    unNetworkProxy(win);
   },
 
   init (win) {
@@ -2557,14 +2748,6 @@ const ajaxHooks = {
     if (helper.config.ajaxCache.enabled) {
       ajaxHooks.hook(ajaxHooksWin);
     }
-
-    // hookJs.before(win, 'fetch', (args, parentObj, methodName, originMethod, execInfo, ctx) => {
-    //   debug.log('[ajaxHooks] fetch', args)
-    // })
-
-    // hookJs.after(win, 'fetch', async (args, parentObj, methodName, originMethod, execInfo, ctx) => {
-    //   debug.log('[ajaxHooks] fetch after', args, execInfo, await execInfo.result)
-    // })
 
     /* 定时清除接口的缓存数据，防止不断堆积 */
     setTimeout(() => {
@@ -2651,6 +2834,17 @@ const inspect = {
     }
 
     return result
+  },
+
+  getComponentInstance (el) {
+    let vueComponent = el && el.__vue__ ? el.__vue__ : null;
+
+    /* 忽略transition */
+    if (vueComponent && vueComponent?.$options._componentTag === 'transition' && vueComponent.$parent) {
+      vueComponent = vueComponent.$parent;
+    }
+
+    return vueComponent
   },
 
   initContextMenu () {
@@ -2804,7 +2998,7 @@ const inspect = {
       zIndex: 2147483647,
       build: function ($trigger, e) {
         const conf = helper.config;
-        const vueComponent = currentComponent ? currentComponent.__vue__ : null;
+        const vueComponent = inspect.getComponentInstance(currentComponent);
 
         let componentMenu = {};
         if (vueComponent) {
@@ -2984,7 +3178,7 @@ const inspect = {
     ].join(' ');
     overlay.setAttribute('style', overlayStyle);
 
-    const vm = el.__vue__;
+    const vm = inspect.getComponentInstance(el);
     if (vm) {
       helper.methods.initComponentInfo(vm);
       const name = vm._componentName || vm._componentTag || vm._uid;

@@ -31,13 +31,18 @@ function createHash (config) {
     url = url.replace(/=\d{13}/, '=cache')
   }
 
-  let hashStr = url
+  let hashStr = url + config.method
 
   if (config.method.toUpperCase() === 'POST') {
     hashStr += JSON.stringify(config.data) + JSON.stringify(config.body)
   }
 
   const hash = md5(hashStr)
+
+  // if (url.includes('weixin.qq.com')) {
+  //   hash = md5(config.url.replace(/\?\S+/, ''))
+  // }
+
   config._hash_ = hash
 
   return hash
@@ -62,16 +67,32 @@ class CacheStore {
     return data
   }
 
-  async setCache (response, filter) {
+  async setCache (response, isFetch) {
     const headers = response.headers || {}
-    if (String(headers['content-type']).includes(filter || 'application/json')) {
+    let isJsonResult = String(headers['content-type']).includes('application/json')
+
+    let resData = response.response || null
+    if (isFetch && response.clone) {
+      const res = response.clone()
+      const resJson = await res.json().catch((err) => {
+        // 解析出错，忽略报错
+        if (err) {}
+      })
+
+      if (resJson) {
+        isJsonResult = true
+        resData = JSON.stringify(resJson)
+      }
+    }
+
+    if (resData && isJsonResult) {
       const hash = createHash(response.config)
-      await this.store.setItem(hash, response.response)
+      await this.store.setItem(hash, resData)
 
       /* 设置缓存的时候顺便更新缓存相关的基础信息，注意，该信息并不能100%被同步到本地 */
       await this.updateCacheInfo(response.config)
 
-      debug.log(`[cacheStore setCache] ${response.config.url}`, response)
+      debug.log(`[cacheStore setCache][${hash}] ${response.config.url}`, response)
     }
   }
 

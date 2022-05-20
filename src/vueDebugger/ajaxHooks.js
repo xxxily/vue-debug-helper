@@ -8,13 +8,12 @@
  */
 
 import debug from './debug'
-import { proxy, unProxy } from '../libs/ajax-hook/index'
+import { networkProxy, unNetworkProxy } from '../libs/network-hook/index'
 import cacheStore from './cacheStore'
 import helper from './helper'
 import {
   filtersMatch
 } from './utils'
-import hookJs from '../libs/hookJs'
 
 /**
  * 判断是否符合进行缓存控制操作的条件
@@ -34,8 +33,8 @@ let ajaxHooksWin = window
 
 const ajaxHooks = {
   hook (win = ajaxHooksWin) {
-    proxy({
-      onRequest: async (config, handler) => {
+    networkProxy({
+      onRequest: async (config, handler, isFetch) => {
         let hitCache = false
 
         if (useCache(config)) {
@@ -46,12 +45,24 @@ const ajaxHooks = {
             const isExpires = Date.now() - cacheInfo.cacheTime > helper.config.ajaxCache.expires
 
             if (!isExpires) {
-              handler.resolve({
-                config: config,
-                status: 200,
-                headers: { 'content-type': 'application/json' },
-                response: cache
-              })
+              if (isFetch) {
+                const customResponse = new Response(cache, {
+                  status: 200,
+                  statusText: 'ok',
+                  url: config.url,
+                  headers: new Headers({
+                    'Content-Type': 'application/json'
+                  })
+                })
+                handler.resolve(customResponse)
+              } else {
+                handler.resolve({
+                  config: config,
+                  status: 200,
+                  headers: { 'content-type': 'application/json' },
+                  response: cache
+                })
+              }
 
               hitCache = true
             }
@@ -59,20 +70,21 @@ const ajaxHooks = {
         }
 
         if (hitCache) {
-          debug.warn(`[ajaxHooks] use cache:${config.method} ${config.url}`, config)
+          const fetchTips = isFetch ? 'fetch ' : ''
+          debug.warn(`[ajaxHooks] use cache:${fetchTips}${config.method} ${config.url}`, config)
         } else {
           handler.next(config)
         }
       },
 
-      onError: (err, handler) => {
+      onError: (err, handler, isFetch) => {
         handler.next(err)
       },
 
-      onResponse: async (response, handler) => {
+      onResponse: async (response, handler, isFetch) => {
         if (useCache(response.config)) {
           // 加入缓存
-          cacheStore.setCache(response, 'application/json')
+          cacheStore.setCache(response, isFetch)
         }
 
         handler.next(response)
@@ -81,7 +93,7 @@ const ajaxHooks = {
   },
 
   unHook (win = ajaxHooksWin) {
-    unProxy(win)
+    unNetworkProxy(win)
   },
 
   init (win) {
@@ -90,14 +102,6 @@ const ajaxHooks = {
     if (helper.config.ajaxCache.enabled) {
       ajaxHooks.hook(ajaxHooksWin)
     }
-
-    // hookJs.before(win, 'fetch', (args, parentObj, methodName, originMethod, execInfo, ctx) => {
-    //   debug.log('[ajaxHooks] fetch', args)
-    // })
-
-    // hookJs.after(win, 'fetch', async (args, parentObj, methodName, originMethod, execInfo, ctx) => {
-    //   debug.log('[ajaxHooks] fetch after', args, execInfo, await execInfo.result)
-    // })
 
     /* 定时清除接口的缓存数据，防止不断堆积 */
     setTimeout(() => {
