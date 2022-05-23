@@ -29,14 +29,30 @@ function useCache (config) {
   }
 }
 
+function isNeedBlockAjax (config) {
+  const blockAjax = helper.config.blockAjax
+  if (blockAjax.enabled) {
+    return filtersMatch(blockAjax.filters, config.url)
+  } else {
+    return false
+  }
+}
+
 let ajaxHooksWin = window
 
 const ajaxHooks = {
   hook (win = ajaxHooksWin) {
     networkProxy({
       onRequest: async (config, handler, isFetch) => {
-        let hitCache = false
+        const fetchTips = isFetch ? 'fetch ' : ''
 
+        if (isNeedBlockAjax(config)) {
+          handler.reject(new Error('ajax blocked'))
+          debug.warn(`[ajaxHooks][blocked]${fetchTips}${config.method} ${config.url}`, config)
+          return false
+        }
+
+        let hitCache = false
         if (useCache(config)) {
           const cacheInfo = await cacheStore.getCacheInfo(config)
           const cache = await cacheStore.getCache(config)
@@ -70,7 +86,6 @@ const ajaxHooks = {
         }
 
         if (hitCache) {
-          const fetchTips = isFetch ? 'fetch ' : ''
           debug.warn(`[ajaxHooks] use cache:${fetchTips}${config.method} ${config.url}`, config)
         } else {
           handler.next(config)
@@ -92,14 +107,20 @@ const ajaxHooks = {
     }, win)
   },
 
-  unHook (win = ajaxHooksWin) {
-    unNetworkProxy(win)
+  unHook (win = ajaxHooksWin, force = false) {
+    if (force === true) {
+      unNetworkProxy(win)
+    } else {
+      if (!helper.config.ajaxCache.enabled && !helper.config.blockAjax.enabled && !helper.config.replaceAjax.enabled) {
+        unNetworkProxy(win)
+      }
+    }
   },
 
   init (win) {
     ajaxHooksWin = win
 
-    if (helper.config.ajaxCache.enabled) {
+    if (helper.config.ajaxCache.enabled || helper.config.blockAjax.enabled || helper.config.replaceAjax.enabled) {
       ajaxHooks.hook(ajaxHooksWin)
     }
 

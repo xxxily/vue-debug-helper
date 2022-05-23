@@ -66,6 +66,15 @@ export default {
       filters: '输入要缓存的接口地址，多个可用,或|分隔，字符串后面加*可执行模糊匹配',
       expires: '输入缓存过期时间，单位为分钟，默认为1440分钟（即24小时）'
     },
+    toggleBlockAjax: '开启/关闭接口请求拦截',
+    blockAjax: {
+      enabled: '开启接口请求拦截',
+      disable: '关闭接口请求拦截',
+      prompt: {
+        filters: '输入要拦截的接口地址，多个可用,或|分隔，字符串后面加*可执行模糊匹配'
+      }
+    },
+
     measureSelectorInterval: '测量选择器时间差',
     measureSelectorIntervalPrompt: {
       selector1: '输入起始选择器',
@@ -75,6 +84,10 @@ export default {
     devtools: {
       enabled: '自动开启vue-devtools',
       disable: '禁止开启vue-devtools'
+    },
+    simplifyMode: {
+      enabled: '简化右键菜单',
+      disable: '展开全部菜单'
     }
   },
   contextMenu: {
@@ -93,6 +106,7 @@ export default {
     copyComponentChian: '复制组件调用链',
     findComponents: '查找组件',
     printLifeCycleInfo: '打印生命周期信息',
-    blockComponents: '阻断组件'
+    blockComponents: '阻断组件',
+    more: '更多'
   }
 }

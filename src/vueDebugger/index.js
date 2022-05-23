@@ -31,6 +31,9 @@ if (window.GM_getResourceText && window.GM_addStyle) {
 }
 
 function init (win) {
+  /* 注册接口拦截功能和接口数据缓存功能 */
+  ajaxHooks.init(win)
+
   if (isInIframe()) {
     debug.log('running in iframe, skip init', window.location.href)
     return false
@@ -41,9 +44,6 @@ function init (win) {
   }
 
   registerStatus = 'initing'
-
-  /* 注册接口拦截功能和接近数据缓存功能 */
-  ajaxHooks.init(win)
 
   vueDetector(win, function (Vue) {
     /* 挂载到window上，方便通过控制台调用调试 */

@@ -223,6 +223,31 @@ const functionCall = {
     debug.log(`${i18n.t('debugHelper.clearAjaxCacheTips')}`)
   },
 
+  useBlockAjax () {
+    helper.config.blockAjax.enabled = true
+
+    const filters = window.prompt(i18n.t('debugHelper.blockAjax.prompt.filters'), helper.config.blockAjax.filters.join(','))
+    if (filters) {
+      helper.config.blockAjax.filters = toArrFilters(filters)
+      ajaxHooks.hook()
+      debug.log(`${i18n.t('debugHelper.blockAjax.enabled')} success (${helper.config.blockAjax.filters.join(',')})`)
+    }
+  },
+
+  disableBlockAjax () {
+    helper.config.blockAjax.enabled = false
+    ajaxHooks.unHook()
+    debug.log(`${i18n.t('debugHelper.blockAjax.disable')} success`)
+  },
+
+  toggleBlockAjax () {
+    if (helper.config.blockAjax.enabled) {
+      functionCall.disableBlockAjax()
+    } else {
+      functionCall.useBlockAjax()
+    }
+  },
+
   addMeasureSelectorInterval (selector1, selector2) {
     let result = {}
     if (!functionCall._measureSelectorArr) {
@@ -291,6 +316,12 @@ const functionCall = {
     }
 
     functionCall.addMeasureSelectorInterval(selector1, selector2)
+  },
+
+  toggleSimplifyMode () {
+    helper.config.contextMenu.simplify = !helper.config.contextMenu.simplify
+    const msg = helper.config.contextMenu.simplify ? i18n.t('debugHelper.simplifyMode.enabled') : i18n.t('debugHelper.simplifyMode.disable')
+    debug.log(`${msg} success`)
   }
 }
 

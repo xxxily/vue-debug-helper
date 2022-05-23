@@ -200,6 +200,7 @@ const inspect = {
     $.contextMenu({
       selector: 'body.vue-debug-helper-inspect-mode',
       zIndex: 2147483647,
+      className: 'vue-debug-helper-context-menu',
       build: function ($trigger, e) {
         const conf = helper.config
         const vueComponent = inspect.getComponentInstance(currentComponent)
@@ -210,7 +211,7 @@ const inspect = {
           componentMenu.componentMenuSeparator = '---------'
         }
 
-        const commonMenu = {
+        const componentsStatisticsInfo = {
           componentsStatistics: {
             name: i18n.t('debugHelper.componentsStatistics'),
             icon: 'fa-thin fa-info-circle',
@@ -230,8 +231,10 @@ const inspect = {
             name: i18n.t('debugHelper.clearAll'),
             icon: 'fa-regular fa-close',
             callback: functionCall.clearAll
-          },
-          statisticsSeparator: '---------',
+          }
+        }
+
+        const commonMenu = {
           findComponents: {
             name: i18n.t('debugHelper.findComponents'),
             icon: 'fa-regular fa-search',
@@ -263,11 +266,7 @@ const inspect = {
             icon: 'fa-regular fa-bug',
             callback: functionCall.toggleHackVueComponent
           },
-          togglePerformanceObserver: {
-            name: conf.performanceObserver.enabled ? i18n.t('debugHelper.performanceObserverStatus.off') : i18n.t('debugHelper.performanceObserverStatus.on'),
-            icon: 'fa-regular fa-paint-brush',
-            callback: functionCall.togglePerformanceObserver
-          },
+          componentFunSeparator: '---------',
           toggleAjaxCache: {
             name: conf.ajaxCache.enabled ? i18n.t('debugHelper.ajaxCacheStatus.off') : i18n.t('debugHelper.ajaxCacheStatus.on'),
             icon: 'fa-regular fa-database',
@@ -278,12 +277,31 @@ const inspect = {
             icon: 'fa-regular fa-database',
             callback: functionCall.clearAjaxCache
           },
+          toggleBlockAjax: {
+            name: conf.blockAjax.enabled ? i18n.t('debugHelper.blockAjax.disable') : i18n.t('debugHelper.blockAjax.enabled'),
+            icon: 'fa-regular fa-ban',
+            callback: functionCall.toggleBlockAjax
+          },
+          togglePerformanceObserver: {
+            name: conf.performanceObserver.enabled ? i18n.t('debugHelper.performanceObserverStatus.off') : i18n.t('debugHelper.performanceObserverStatus.on'),
+            icon: 'fa-regular fa-paint-brush',
+            callback: functionCall.togglePerformanceObserver
+          },
           measureSelectorInterval: {
             name: i18n.t('debugHelper.measureSelectorInterval'),
             icon: 'fa-regular fa-clock-o',
             callback: functionCall.measureSelectorInterval
           },
-          commonEndSeparator: '---------',
+          commonEndSeparator: '---------'
+        }
+
+        const moreMenu = {
+          ...(conf.contextMenu.simplify ? commonMenu : {}),
+          toggleSimplifyMode: {
+            name: conf.contextMenu.simplify ? i18n.t('debugHelper.simplifyMode.disable') : i18n.t('debugHelper.simplifyMode.enabled'),
+            icon: 'fa-regular fa-compress',
+            callback: functionCall.toggleSimplifyMode
+          },
           toggleInspect: {
             name: conf.inspect.enabled ? i18n.t('debugHelper.inspectStatus.off') : i18n.t('debugHelper.inspectStatus.on'),
             icon: 'fa-regular fa-eye',
@@ -305,7 +323,16 @@ const inspect = {
             },
             sep0: '---------',
             ...componentMenu,
-            ...commonMenu,
+            ...componentsStatisticsInfo,
+            statisticsSeparator: '---------',
+            ...(conf.contextMenu.simplify ? {} : commonMenu),
+            more: {
+              name: i18n.t('contextMenu.more'),
+              icon: 'fa-ellipsis-h',
+              items: {
+                ...moreMenu
+              }
+            },
             quit: {
               name: i18n.t('quit'),
               icon: 'fa-close',
@@ -334,6 +361,9 @@ const inspect = {
 
       const styleDom = document.createElement('style')
       styleDom.appendChild(document.createTextNode(`
+        .vue-debug-helper-context-menu {
+          font-size: 14px;
+        }
         #${overlaySelector} {
           position: fixed;
           z-index: 2147483647;
@@ -367,7 +397,7 @@ const inspect = {
       `))
 
       overlay.appendChild(infoBox)
-      overlay.appendChild(styleDom)
+      document.body.appendChild(styleDom)
       document.body.appendChild(overlay)
     }
 

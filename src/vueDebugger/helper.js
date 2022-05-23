@@ -24,6 +24,11 @@ window.vueDebugHelper = {
       enabled: false
     },
 
+    contextMenu: {
+      /* 简化菜单，将部分菜单项放到更多菜单的子项中 */
+      simplify: false
+    },
+
     performanceObserver: {
       enabled: false,
       // https://runebook.dev/zh-CN/docs/dom/performanceentry/entrytype
@@ -37,6 +42,16 @@ window.vueDebugHelper = {
 
       /* 设置缓存多久失效，默认为1天 */
       expires: 1000 * 60 * 60 * 24
+    },
+
+    blockAjax: {
+      enabled: false,
+      filters: []
+    },
+
+    replaceAjax: {
+      enabled: false,
+      replaceRules: []
     },
 
     /* 测量选择器时间差 */

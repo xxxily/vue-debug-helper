@@ -349,6 +349,11 @@ window.vueDebugHelper = {
       enabled: false
     },
 
+    contextMenu: {
+      /* 简化菜单，将部分菜单项放到更多菜单的子项中 */
+      simplify: false
+    },
+
     performanceObserver: {
       enabled: false,
       // https://runebook.dev/zh-CN/docs/dom/performanceentry/entrytype
@@ -362,6 +367,16 @@ window.vueDebugHelper = {
 
       /* 设置缓存多久失效，默认为1天 */
       expires: 1000 * 60 * 60 * 24
+    },
+
+    blockAjax: {
+      enabled: false,
+      filters: []
+    },
+
+    replaceAjax: {
+      enabled: false,
+      replaceRules: []
     },
 
     /* 测量选择器时间差 */
@@ -1087,6 +1102,15 @@ var zhCN = {
       filters: '输入要缓存的接口地址，多个可用,或|分隔，字符串后面加*可执行模糊匹配',
       expires: '输入缓存过期时间，单位为分钟，默认为1440分钟（即24小时）'
     },
+    toggleBlockAjax: '开启/关闭接口请求拦截',
+    blockAjax: {
+      enabled: '开启接口请求拦截',
+      disable: '关闭接口请求拦截',
+      prompt: {
+        filters: '输入要拦截的接口地址，多个可用,或|分隔，字符串后面加*可执行模糊匹配'
+      }
+    },
+
     measureSelectorInterval: '测量选择器时间差',
     measureSelectorIntervalPrompt: {
       selector1: '输入起始选择器',
@@ -1096,6 +1120,10 @@ var zhCN = {
     devtools: {
       enabled: '自动开启vue-devtools',
       disable: '禁止开启vue-devtools'
+    },
+    simplifyMode: {
+      enabled: '简化右键菜单',
+      disable: '展开全部菜单'
     }
   },
   contextMenu: {
@@ -1114,7 +1142,8 @@ var zhCN = {
     copyComponentChian: '复制组件调用链',
     findComponents: '查找组件',
     printLifeCycleInfo: '打印生命周期信息',
-    blockComponents: '阻断组件'
+    blockComponents: '阻断组件',
+    more: '更多'
   }
 };
 
@@ -2675,14 +2704,30 @@ function useCache (config) {
   }
 }
 
+function isNeedBlockAjax (config) {
+  const blockAjax = helper.config.blockAjax;
+  if (blockAjax.enabled) {
+    return filtersMatch(blockAjax.filters, config.url)
+  } else {
+    return false
+  }
+}
+
 let ajaxHooksWin = window;
 
 const ajaxHooks = {
   hook (win = ajaxHooksWin) {
     networkProxy({
       onRequest: async (config, handler, isFetch) => {
-        let hitCache = false;
+        const fetchTips = isFetch ? 'fetch ' : '';
 
+        if (isNeedBlockAjax(config)) {
+          handler.reject(new Error('ajax blocked'));
+          debug.warn(`[ajaxHooks][blocked]${fetchTips}${config.method} ${config.url}`, config);
+          return false
+        }
+
+        let hitCache = false;
         if (useCache(config)) {
           const cacheInfo = await cacheStore.getCacheInfo(config);
           const cache = await cacheStore.getCache(config);
@@ -2716,7 +2761,6 @@ const ajaxHooks = {
         }
 
         if (hitCache) {
-          const fetchTips = isFetch ? 'fetch ' : '';
           debug.warn(`[ajaxHooks] use cache:${fetchTips}${config.method} ${config.url}`, config);
         } else {
           handler.next(config);
@@ -2738,14 +2782,20 @@ const ajaxHooks = {
     }, win);
   },
 
-  unHook (win = ajaxHooksWin) {
-    unNetworkProxy(win);
+  unHook (win = ajaxHooksWin, force = false) {
+    if (force === true) {
+      unNetworkProxy(win);
+    } else {
+      if (!helper.config.ajaxCache.enabled && !helper.config.blockAjax.enabled && !helper.config.replaceAjax.enabled) {
+        unNetworkProxy(win);
+      }
+    }
   },
 
   init (win) {
     ajaxHooksWin = win;
 
-    if (helper.config.ajaxCache.enabled) {
+    if (helper.config.ajaxCache.enabled || helper.config.blockAjax.enabled || helper.config.replaceAjax.enabled) {
       ajaxHooks.hook(ajaxHooksWin);
     }
 
@@ -2996,6 +3046,7 @@ const inspect = {
     $.contextMenu({
       selector: 'body.vue-debug-helper-inspect-mode',
       zIndex: 2147483647,
+      className: 'vue-debug-helper-context-menu',
       build: function ($trigger, e) {
         const conf = helper.config;
         const vueComponent = inspect.getComponentInstance(currentComponent);
@@ -3006,7 +3057,7 @@ const inspect = {
           componentMenu.componentMenuSeparator = '---------';
         }
 
-        const commonMenu = {
+        const componentsStatisticsInfo = {
           componentsStatistics: {
             name: i18n.t('debugHelper.componentsStatistics'),
             icon: 'fa-thin fa-info-circle',
@@ -3026,8 +3077,10 @@ const inspect = {
             name: i18n.t('debugHelper.clearAll'),
             icon: 'fa-regular fa-close',
             callback: functionCall.clearAll
-          },
-          statisticsSeparator: '---------',
+          }
+        };
+
+        const commonMenu = {
           findComponents: {
             name: i18n.t('debugHelper.findComponents'),
             icon: 'fa-regular fa-search',
@@ -3059,11 +3112,7 @@ const inspect = {
             icon: 'fa-regular fa-bug',
             callback: functionCall.toggleHackVueComponent
           },
-          togglePerformanceObserver: {
-            name: conf.performanceObserver.enabled ? i18n.t('debugHelper.performanceObserverStatus.off') : i18n.t('debugHelper.performanceObserverStatus.on'),
-            icon: 'fa-regular fa-paint-brush',
-            callback: functionCall.togglePerformanceObserver
-          },
+          componentFunSeparator: '---------',
           toggleAjaxCache: {
             name: conf.ajaxCache.enabled ? i18n.t('debugHelper.ajaxCacheStatus.off') : i18n.t('debugHelper.ajaxCacheStatus.on'),
             icon: 'fa-regular fa-database',
@@ -3074,12 +3123,31 @@ const inspect = {
             icon: 'fa-regular fa-database',
             callback: functionCall.clearAjaxCache
           },
+          toggleBlockAjax: {
+            name: conf.blockAjax.enabled ? i18n.t('debugHelper.blockAjax.disable') : i18n.t('debugHelper.blockAjax.enabled'),
+            icon: 'fa-regular fa-ban',
+            callback: functionCall.toggleBlockAjax
+          },
+          togglePerformanceObserver: {
+            name: conf.performanceObserver.enabled ? i18n.t('debugHelper.performanceObserverStatus.off') : i18n.t('debugHelper.performanceObserverStatus.on'),
+            icon: 'fa-regular fa-paint-brush',
+            callback: functionCall.togglePerformanceObserver
+          },
           measureSelectorInterval: {
             name: i18n.t('debugHelper.measureSelectorInterval'),
             icon: 'fa-regular fa-clock-o',
             callback: functionCall.measureSelectorInterval
           },
-          commonEndSeparator: '---------',
+          commonEndSeparator: '---------'
+        };
+
+        const moreMenu = {
+          ...(conf.contextMenu.simplify ? commonMenu : {}),
+          toggleSimplifyMode: {
+            name: conf.contextMenu.simplify ? i18n.t('debugHelper.simplifyMode.disable') : i18n.t('debugHelper.simplifyMode.enabled'),
+            icon: 'fa-regular fa-compress',
+            callback: functionCall.toggleSimplifyMode
+          },
           toggleInspect: {
             name: conf.inspect.enabled ? i18n.t('debugHelper.inspectStatus.off') : i18n.t('debugHelper.inspectStatus.on'),
             icon: 'fa-regular fa-eye',
@@ -3101,7 +3169,16 @@ const inspect = {
             },
             sep0: '---------',
             ...componentMenu,
-            ...commonMenu,
+            ...componentsStatisticsInfo,
+            statisticsSeparator: '---------',
+            ...(conf.contextMenu.simplify ? {} : commonMenu),
+            more: {
+              name: i18n.t('contextMenu.more'),
+              icon: 'fa-ellipsis-h',
+              items: {
+                ...moreMenu
+              }
+            },
             quit: {
               name: i18n.t('quit'),
               icon: 'fa-close',
@@ -3130,6 +3207,9 @@ const inspect = {
 
       const styleDom = document.createElement('style');
       styleDom.appendChild(document.createTextNode(`
+        .vue-debug-helper-context-menu {
+          font-size: 14px;
+        }
         #${overlaySelector} {
           position: fixed;
           z-index: 2147483647;
@@ -3163,7 +3243,7 @@ const inspect = {
       `));
 
       overlay.appendChild(infoBox);
-      overlay.appendChild(styleDom);
+      document.body.appendChild(styleDom);
       document.body.appendChild(overlay);
     }
 
@@ -3492,6 +3572,31 @@ const functionCall = {
     debug.log(`${i18n.t('debugHelper.clearAjaxCacheTips')}`);
   },
 
+  useBlockAjax () {
+    helper.config.blockAjax.enabled = true;
+
+    const filters = window.prompt(i18n.t('debugHelper.blockAjax.prompt.filters'), helper.config.blockAjax.filters.join(','));
+    if (filters) {
+      helper.config.blockAjax.filters = toArrFilters(filters);
+      ajaxHooks.hook();
+      debug.log(`${i18n.t('debugHelper.blockAjax.enabled')} success (${helper.config.blockAjax.filters.join(',')})`);
+    }
+  },
+
+  disableBlockAjax () {
+    helper.config.blockAjax.enabled = false;
+    ajaxHooks.unHook();
+    debug.log(`${i18n.t('debugHelper.blockAjax.disable')} success`);
+  },
+
+  toggleBlockAjax () {
+    if (helper.config.blockAjax.enabled) {
+      functionCall.disableBlockAjax();
+    } else {
+      functionCall.useBlockAjax();
+    }
+  },
+
   addMeasureSelectorInterval (selector1, selector2) {
     let result = {};
     if (!functionCall._measureSelectorArr) {
@@ -3560,6 +3665,12 @@ const functionCall = {
     }
 
     functionCall.addMeasureSelectorInterval(selector1, selector2);
+  },
+
+  toggleSimplifyMode () {
+    helper.config.contextMenu.simplify = !helper.config.contextMenu.simplify;
+    const msg = helper.config.contextMenu.simplify ? i18n.t('debugHelper.simplifyMode.enabled') : i18n.t('debugHelper.simplifyMode.disable');
+    debug.log(`${msg} success`);
   }
 };
 
@@ -4467,6 +4578,9 @@ if (window.GM_getResourceText && window.GM_addStyle) {
 }
 
 function init (win) {
+  /* 注册接口拦截功能和接口数据缓存功能 */
+  ajaxHooks.init(win);
+
   if (isInIframe()) {
     debug.log('running in iframe, skip init', window.location.href);
     return false
@@ -4477,9 +4591,6 @@ function init (win) {
   }
 
   registerStatus = 'initing';
-
-  /* 注册接口拦截功能和接近数据缓存功能 */
-  ajaxHooks.init(win);
 
   vueDetect(win, function (Vue) {
     /* 挂载到window上，方便通过控制台调用调试 */
