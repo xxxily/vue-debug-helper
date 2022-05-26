@@ -43,7 +43,16 @@ function init (win) {
     return false
   }
 
+  /* 注册性能观察的功能 */
+  performanceObserver.init()
+
+  /* 注册选择器测量辅助功能 */
+  functionCall.initMeasureSelectorInterval()
+
   registerStatus = 'initing'
+
+  /* 首次菜单注册 */
+  menuRegister('initing')
 
   vueDetector(win, function (Vue) {
     /* 挂载到window上，方便通过控制台调用调试 */
@@ -58,17 +67,11 @@ function init (win) {
       vueHooks.hackVueComponent(Vue)
     }
 
-    /* 注册性能观察的功能 */
-    performanceObserver.init()
-
-    /* 注册选择器测量辅助功能 */
-    functionCall.initMeasureSelectorInterval()
-
     /* 对Vue相关配置进行初始化 */
     vueConfigInit(Vue, helper.config)
 
     mixinRegister(Vue)
-    menuRegister(Vue)
+    menuRegister('success')
     hotKeyRegister(Vue)
 
     inspect.init(Vue)
@@ -79,7 +82,7 @@ function init (win) {
 
   setTimeout(() => {
     if (registerStatus !== 'success') {
-      menuRegister(null)
+      menuRegister('failed')
       debug.warn('vue debug helper register failed, please check if vue is loaded .', win.location.href)
     }
   }, 1000 * 10)

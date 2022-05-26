@@ -23,14 +23,40 @@ function vueConfigInit (Vue, config) {
         const devtools = getVueDevtools()
         if (devtools) {
           if (!devtools.enabled) {
-            devtools.emit('init', Vue)
+            if (/^3\.*/.test(Vue.version)) {
+              // https://github.com/vuejs/core/blob/main/packages/runtime-core/src/devtools.ts
+              devtools.emit('app:init', Vue, Vue.version, {
+                Fragment: 'Fragment',
+                Text: 'Text',
+                Comment: 'Comment',
+                Static: 'Static'
+              })
+
+              const unmount = Vue.unmount.bind(Vue)
+              Vue.unmount = function () {
+                devtools.emit('app:unmount', Vue)
+                unmount()
+              }
+            } else {
+              // https://github.com/vuejs/vue/blob/dev/src/platforms/web/runtime/index.js
+              devtools.emit('init', Vue)
+
+              // 注册vuex store，参考vuex源码
+              if (Vue.$store) {
+                Vue.$store._devtoolHook = devtools
+                devtools.emit('vuex:init', Vue.$store)
+                devtools.on('vuex:travel-to-state', function (targetState) {
+                  Vue.$store.replaceState(targetState)
+                })
+                Vue.$store.subscribe(function (mutation, state) {
+                  devtools.emit('vuex:mutation', mutation, state)
+                })
+              }
+            }
+
             debug.info('vue devtools init emit.')
           }
         } else {
-          // debug.info(
-          //   'Download the Vue Devtools extension for a better development experience:\n' +
-          //   'https://github.com/vuejs/vue-devtools'
-          // )
           debug.info('vue devtools check failed.')
         }
       }, 200)

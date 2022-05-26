@@ -165,4 +165,14 @@ function copyToClipboard (text) {
   }
 }
 
-export { objSort, createEmptyData, toArrFilters, addToFilters, stringMatch, filtersMatch, inBrowser, getVueDevtools, copyToClipboard }
+function openInTab (url, opts) {
+  if (window.GM_openInTab) {
+    window.GM_openInTab(url, opts || {
+      active: true,
+      insert: true,
+      setParent: true
+    })
+  }
+}
+
+export { objSort, createEmptyData, toArrFilters, addToFilters, stringMatch, filtersMatch, inBrowser, getVueDevtools, copyToClipboard, openInTab }

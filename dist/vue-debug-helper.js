@@ -6,7 +6,7 @@
 // @name:ja      Vueデバッグ分析アシスタント
 // @namespace    https://github.com/xxxily/vue-debug-helper
 // @homepage     https://github.com/xxxily/vue-debug-helper
-// @version      0.0.20
+// @version      0.0.22
 // @description  Vue components debug helper
 // @description:en  Vue components debug helper
 // @description:zh  Vue组件探测、统计、分析辅助脚本
@@ -329,6 +329,16 @@ function copyToClipboard (text) {
     input.select();
     document.execCommand('copy');
     document.body.removeChild(input);
+  }
+}
+
+function openInTab (url, opts) {
+  if (window.GM_openInTab) {
+    window.GM_openInTab(url, opts || {
+      active: true,
+      insert: true,
+      setParent: true
+    });
   }
 }
 
@@ -941,16 +951,74 @@ function mixinRegister (Vue) {
  */
 
 const monkeyMenu = {
+  menuIds: {},
   on (title, fn, accessKey) {
-    return window.GM_registerMenuCommand && window.GM_registerMenuCommand(title, fn, accessKey)
+    if (window.GM_registerMenuCommand) {
+      const menuId = window.GM_registerMenuCommand(title, fn, accessKey);
+
+      this.menuIds[menuId] = {
+        title,
+        fn,
+        accessKey
+      };
+
+      return menuId
+    }
   },
+
   off (id) {
-    return window.GM_unregisterMenuCommand && window.GM_unregisterMenuCommand(id)
+    if (window.GM_unregisterMenuCommand) {
+      delete this.menuIds[id];
+      return window.GM_unregisterMenuCommand(id)
+    }
   },
-  /* 切换类型的菜单功能 */
-  switch (title, fn, defVal) {
-    const t = this;
-    t.on(title, fn);
+
+  clear () {
+    Object.keys(this.menuIds).forEach(id => {
+      this.off(id);
+    });
+  },
+
+  /**
+   * 通过菜单配置进行批量注册，注册前会清空之前注册过的所有菜单
+   * @param {array|function} menuOpts 菜单配置，如果是函数则会调用该函数获取菜单配置，并且当菜单被点击后会重新创建菜单，实现菜单的动态更新
+   */
+  build (menuOpts) {
+    this.clear();
+
+    if (Array.isArray(menuOpts)) {
+      menuOpts.forEach(menu => {
+        if (menu.disable === true) { return }
+        this.on(menu.title, menu.fn, menu.accessKey);
+      });
+    } else if (menuOpts instanceof Function) {
+      const menuList = menuOpts();
+      if (Array.isArray(menuList)) {
+        this._menuBuilder_ = menuOpts;
+
+        menuList.forEach(menu => {
+          if (menu.disable === true) { return }
+
+          const menuFn = () => {
+            try {
+              menu.fn.apply(menu, arguments);
+            } catch (e) {
+              console.error('[monkeyMenu]', menu.title, e);
+            }
+
+            // 每次菜单点击后，重新注册菜单，这样可以确保菜单的状态是最新的
+            setTimeout(() => {
+              // console.log('[monkeyMenu rebuild]', menu.title)
+              this.build(this._menuBuilder_);
+            }, 100);
+          };
+
+          this.on(menu.title, menuFn, menu.accessKey);
+        });
+      } else {
+        console.error('monkeyMenu build error, no menuList return', menuOpts);
+      }
+    }
   }
 };
 
@@ -1035,12 +1103,15 @@ class I18n {
 }
 
 var zhCN = {
+  help: '插件帮助中心',
   about: '关于',
   issues: '反馈',
   setting: '设置',
   hotkeys: '快捷键',
   donate: '赞赏',
+  docs: '文档',
   quit: '退出',
+  update: '更新',
   refreshPage: '刷新页面',
   debugHelper: {
     viewVueDebugHelperObject: 'vueDebugHelper对象',
@@ -1928,10 +1999,6 @@ const vueHooks = {
     } else {
       debug.warn('[Vue.component] you have not hack vue component, not need to unhack');
     }
-  },
-
-  hackVueUpdate () {
-    //
   }
 };
 
@@ -3143,6 +3210,32 @@ const inspect = {
 
         const moreMenu = {
           ...(conf.contextMenu.simplify ? commonMenu : {}),
+          help: {
+            name: i18n.t('help'),
+            icon: 'fa-regular fa-question-circle',
+            items: {
+              docs: {
+                name: i18n.t('docs'),
+                icon: 'fa-regular fa-book',
+                callback: () => { openInTab('https://github.com/xxxily/vue-debug-helper'); }
+              },
+              about: {
+                name: i18n.t('about'),
+                icon: 'fa-regular fa-info-circle',
+                callback: () => { openInTab('https://github.com/xxxily/vue-debug-helper'); }
+              },
+              issues: {
+                name: i18n.t('issues'),
+                icon: 'fa-regular fa-bug',
+                callback: () => { openInTab('https://github.com/xxxily/vue-debug-helper/issues'); }
+              },
+              update: {
+                name: i18n.t('update'),
+                icon: 'fa-regular fa-refresh',
+                callback: () => { openInTab('https://greasyfork.org/zh-CN/scripts/444075'); }
+              }
+            }
+          },
           toggleSimplifyMode: {
             name: conf.contextMenu.simplify ? i18n.t('debugHelper.simplifyMode.disable') : i18n.t('debugHelper.simplifyMode.enabled'),
             icon: 'fa-regular fa-compress',
@@ -3192,6 +3285,11 @@ const inspect = {
         return menu
       }
     });
+
+    /* 主动触发右键，解决部分右键菜单已被提前注册且禁止冒泡导致右键无法触发的问题 */
+    document.addEventListener('contextmenu', function (e) {
+      helper.config.inspect.enabled && $('body.vue-debug-helper-inspect-mode').contextMenu({ x: e.pageX, y: e.pageY });
+    }, true);
 
     this._hasInitContextMenu_ = true;
   },
@@ -3683,49 +3781,125 @@ const functionCall = {
  * @github       https://github.com/xxxily
  */
 
-function menuRegister (Vue) {
-  if (!Vue) {
-    monkeyMenu.on('not detected ' + i18n.t('issues'), () => {
-      window.GM_openInTab('https://github.com/xxxily/vue-debug-helper/issues', {
-        active: true,
-        insert: true,
-        setParent: true
-      });
-    });
-    return false
+const vueStatus = {
+  status: ''
+};
+
+function menuRegister (vueDetectStatus) {
+  vueStatus.status = vueDetectStatus;
+
+  function menuBuilder () {
+    const conf = helper.config;
+    let menuList = [];
+
+    if (vueStatus.status) {
+      if (vueStatus.status === 'initing') {
+        menuList.push({
+          title: 'Vue Detecting...',
+          fn: () => { debug.log('Vue Detecting...'); }
+        });
+      } else if (vueStatus.status === 'failed') {
+        menuList.push({
+          title: 'Vue not detected',
+          fn: () => { debug.log('Vue not detected'); }
+        });
+      } else if (vueStatus.status === 'success') {
+        const vueMenu = [
+          {
+            title: conf.inspect.enabled ? i18n.t('debugHelper.inspectStatus.off') : i18n.t('debugHelper.inspectStatus.on'),
+            fn: () => { functionCall.toggleInspect(); }
+          },
+          {
+            title: i18n.t('debugHelper.viewVueDebugHelperObject'),
+            fn: () => { functionCall.viewVueDebugHelperObject(); }
+          },
+          {
+            title: i18n.t('debugHelper.componentsStatistics'),
+            fn: () => { functionCall.componentsStatistics(); }
+          },
+          {
+            title: i18n.t('debugHelper.componentsSummaryStatisticsSort'),
+            fn: () => { functionCall.componentsSummaryStatisticsSort(); }
+          },
+          {
+            title: i18n.t('debugHelper.destroyStatisticsSort'),
+            fn: () => { functionCall.destroyStatisticsSort(); }
+          },
+          {
+            title: i18n.t('debugHelper.clearAll'),
+            fn: () => { functionCall.clearAll(); }
+          },
+          {
+            title: i18n.t('debugHelper.getDestroyByDuration'),
+            fn: () => { functionCall.getDestroyByDuration(); }
+          },
+          {
+            title: i18n.t('debugHelper.findComponents'),
+            fn: () => { functionCall.findComponents(); }
+          },
+          {
+            title: i18n.t('debugHelper.blockComponents'),
+            fn: () => { functionCall.blockComponents(); }
+          },
+          {
+            title: conf.lifecycle.show ? i18n.t('debugHelper.notPrintLifeCycleInfo') : i18n.t('debugHelper.printLifeCycleInfo'),
+            fn: () => { conf.lifecycle.show ? functionCall.notPrintLifeCycleInfo() : functionCall.printLifeCycleInfo(); }
+          },
+          {
+            title: conf.dd.enabled ? i18n.t('debugHelper.undd') : i18n.t('debugHelper.dd'),
+            fn: () => { conf.dd.enabled ? functionCall.undd() : functionCall.dd(); }
+          },
+          {
+            title: conf.hackVueComponent ? i18n.t('debugHelper.hackVueComponent.unhack') : i18n.t('debugHelper.hackVueComponent.hack'),
+            fn: () => { functionCall.toggleHackVueComponent(); }
+          },
+          {
+            title: helper.config.devtools ? i18n.t('debugHelper.devtools.disable') : i18n.t('debugHelper.devtools.enabled'),
+            fn: () => { helper.methods.toggleDevtools(); }
+          }
+        ];
+        menuList = menuList.concat(vueMenu);
+      }
+    }
+
+    const commonMenu = [
+      {
+        title: conf.ajaxCache.enabled ? i18n.t('debugHelper.ajaxCacheStatus.off') : i18n.t('debugHelper.ajaxCacheStatus.on'),
+        fn: () => { functionCall.toggleAjaxCache(); }
+      },
+      {
+        title: i18n.t('debugHelper.clearAjaxCache'),
+        fn: () => { functionCall.clearAjaxCache(); }
+      },
+      {
+        title: conf.blockAjax.enabled ? i18n.t('debugHelper.blockAjax.disable') : i18n.t('debugHelper.blockAjax.enabled'),
+        fn: () => { functionCall.toggleBlockAjax(); }
+      },
+      {
+        title: conf.performanceObserver.enabled ? i18n.t('debugHelper.performanceObserverStatus.off') : i18n.t('debugHelper.performanceObserverStatus.on'),
+        fn: () => { functionCall.togglePerformanceObserver(); }
+      },
+      {
+        title: i18n.t('debugHelper.measureSelectorInterval'),
+        fn: () => { functionCall.measureSelectorInterval(); }
+      },
+      {
+        title: i18n.t('issues'),
+        fn: () => { openInTab('https://github.com/xxxily/vue-debug-helper/issues'); }
+      },
+      {
+        disable: true,
+        title: i18n.t('donate'),
+        fn: () => { openInTab('https://cdn.jsdelivr.net/gh/xxxily/vue-debug-helper@main/donate.png'); }
+      }
+    ];
+
+    menuList = menuList.concat(commonMenu);
+    return menuList
   }
 
-  /* 批量注册菜单 */
-  Object.keys(functionCall).forEach(key => {
-    const text = i18n.t(`debugHelper.${key}`);
-    if (text && functionCall[key] instanceof Function) {
-      monkeyMenu.on(text, functionCall[key]);
-    }
-  });
-
-  /* 是否开启vue-devtools的菜单 */
-  const devtoolsText = helper.config.devtools ? i18n.t('debugHelper.devtools.disable') : i18n.t('debugHelper.devtools.enabled');
-  monkeyMenu.on(devtoolsText, helper.methods.toggleDevtools);
-
-  // monkeyMenu.on('i18n.t('setting')', () => {
-  //   window.alert('功能开发中，敬请期待...')
-  // })
-
-  monkeyMenu.on(i18n.t('issues'), () => {
-    window.GM_openInTab('https://github.com/xxxily/vue-debug-helper/issues', {
-      active: true,
-      insert: true,
-      setParent: true
-    });
-  });
-
-  // monkeyMenu.on(i18n.t('donate'), () => {
-  //   window.GM_openInTab('https://cdn.jsdelivr.net/gh/xxxily/vue-debug-helper@main/donate.png', {
-  //     active: true,
-  //     insert: true,
-  //     setParent: true
-  //   })
-  // })
+  /* 注册动态菜单 */
+  monkeyMenu.build(menuBuilder);
 }
 
 const isff = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase().indexOf('firefox') > 0 : false;
@@ -4490,14 +4664,40 @@ function vueConfigInit (Vue, config) {
         const devtools = getVueDevtools();
         if (devtools) {
           if (!devtools.enabled) {
-            devtools.emit('init', Vue);
+            if (/^3\.*/.test(Vue.version)) {
+              // https://github.com/vuejs/core/blob/main/packages/runtime-core/src/devtools.ts
+              devtools.emit('app:init', Vue, Vue.version, {
+                Fragment: 'Fragment',
+                Text: 'Text',
+                Comment: 'Comment',
+                Static: 'Static'
+              });
+
+              const unmount = Vue.unmount.bind(Vue);
+              Vue.unmount = function () {
+                devtools.emit('app:unmount', Vue);
+                unmount();
+              };
+            } else {
+              // https://github.com/vuejs/vue/blob/dev/src/platforms/web/runtime/index.js
+              devtools.emit('init', Vue);
+
+              // 注册vuex store，参考vuex源码
+              if (Vue.$store) {
+                Vue.$store._devtoolHook = devtools;
+                devtools.emit('vuex:init', Vue.$store);
+                devtools.on('vuex:travel-to-state', function (targetState) {
+                  Vue.$store.replaceState(targetState);
+                });
+                Vue.$store.subscribe(function (mutation, state) {
+                  devtools.emit('vuex:mutation', mutation, state);
+                });
+              }
+            }
+
             debug.info('vue devtools init emit.');
           }
         } else {
-          // debug.info(
-          //   'Download the Vue Devtools extension for a better development experience:\n' +
-          //   'https://github.com/vuejs/vue-devtools'
-          // )
           debug.info('vue devtools check failed.');
         }
       }, 200);
@@ -4590,7 +4790,16 @@ function init (win) {
     return false
   }
 
+  /* 注册性能观察的功能 */
+  performanceObserver.init();
+
+  /* 注册选择器测量辅助功能 */
+  functionCall.initMeasureSelectorInterval();
+
   registerStatus = 'initing';
+
+  /* 首次菜单注册 */
+  menuRegister('initing');
 
   vueDetect(win, function (Vue) {
     /* 挂载到window上，方便通过控制台调用调试 */
@@ -4605,17 +4814,11 @@ function init (win) {
       vueHooks.hackVueComponent(Vue);
     }
 
-    /* 注册性能观察的功能 */
-    performanceObserver.init();
-
-    /* 注册选择器测量辅助功能 */
-    functionCall.initMeasureSelectorInterval();
-
     /* 对Vue相关配置进行初始化 */
     vueConfigInit(Vue, helper.config);
 
     mixinRegister(Vue);
-    menuRegister(Vue);
+    menuRegister('success');
     hotKeyRegister();
 
     inspect.init(Vue);
@@ -4626,7 +4829,7 @@ function init (win) {
 
   setTimeout(() => {
     if (registerStatus !== 'success') {
-      menuRegister(null);
+      menuRegister('failed');
       debug.warn('vue debug helper register failed, please check if vue is loaded .', win.location.href);
     }
   }, 1000 * 10);

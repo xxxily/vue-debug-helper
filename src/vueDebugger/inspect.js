@@ -11,6 +11,7 @@ import debug from './debug'
 import i18n from './i18n'
 import functionCall from './functionCall'
 import {
+  openInTab,
   copyToClipboard
 } from './utils'
 
@@ -297,6 +298,32 @@ const inspect = {
 
         const moreMenu = {
           ...(conf.contextMenu.simplify ? commonMenu : {}),
+          help: {
+            name: i18n.t('help'),
+            icon: 'fa-regular fa-question-circle',
+            items: {
+              docs: {
+                name: i18n.t('docs'),
+                icon: 'fa-regular fa-book',
+                callback: () => { openInTab('https://github.com/xxxily/vue-debug-helper') }
+              },
+              about: {
+                name: i18n.t('about'),
+                icon: 'fa-regular fa-info-circle',
+                callback: () => { openInTab('https://github.com/xxxily/vue-debug-helper') }
+              },
+              issues: {
+                name: i18n.t('issues'),
+                icon: 'fa-regular fa-bug',
+                callback: () => { openInTab('https://github.com/xxxily/vue-debug-helper/issues') }
+              },
+              update: {
+                name: i18n.t('update'),
+                icon: 'fa-regular fa-refresh',
+                callback: () => { openInTab('https://greasyfork.org/zh-CN/scripts/444075') }
+              }
+            }
+          },
           toggleSimplifyMode: {
             name: conf.contextMenu.simplify ? i18n.t('debugHelper.simplifyMode.disable') : i18n.t('debugHelper.simplifyMode.enabled'),
             icon: 'fa-regular fa-compress',
@@ -346,6 +373,11 @@ const inspect = {
         return menu
       }
     })
+
+    /* 主动触发右键，解决部分右键菜单已被提前注册且禁止冒泡导致右键无法触发的问题 */
+    document.addEventListener('contextmenu', function (e) {
+      helper.config.inspect.enabled && $('body.vue-debug-helper-inspect-mode').contextMenu({ x: e.pageX, y: e.pageY })
+    }, true)
 
     this._hasInitContextMenu_ = true
   },

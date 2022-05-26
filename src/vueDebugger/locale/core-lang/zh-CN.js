@@ -1,10 +1,13 @@
 export default {
+  help: '插件帮助中心',
   about: '关于',
   issues: '反馈',
   setting: '设置',
   hotkeys: '快捷键',
   donate: '赞赏',
+  docs: '文档',
   quit: '退出',
+  update: '更新',
   refreshPage: '刷新页面',
   debugHelper: {
     viewVueDebugHelperObject: 'vueDebugHelper对象',
