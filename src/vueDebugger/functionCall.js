@@ -185,6 +185,20 @@ const functionCall = {
     debug.log(`${i18n.t('debugHelper.togglePerformanceObserver')} success (${helper.config.performanceObserver.enabled})`)
   },
 
+  useEditingAssistance () {
+    helper.config.editingAssistance.enabled = true
+    debug.log(`${i18n.t('debugHelper.editingAssistance.on')}`)
+  },
+
+  disableEditingAssistance () {
+    helper.config.editingAssistance.enabled = false
+    debug.log(`${i18n.t('debugHelper.editingAssistance.off')}`)
+  },
+
+  toggleEditingAssistance () {
+    helper.config.editingAssistance.enabled ? this.disableEditingAssistance() : this.useEditingAssistance()
+  },
+
   useAjaxCache () {
     helper.config.ajaxCache.enabled = true
 
@@ -322,6 +336,22 @@ const functionCall = {
     helper.config.contextMenu.simplify = !helper.config.contextMenu.simplify
     const msg = helper.config.contextMenu.simplify ? i18n.t('debugHelper.simplifyMode.enabled') : i18n.t('debugHelper.simplifyMode.disable')
     debug.log(`${msg} success`)
+  },
+
+  setOverlaySelectorOpacity () {
+    const overlaySelectorOpacity = Number(window.prompt(i18n.t('debugHelper.setOverlaySelectorOpacity'), helper.config.overlaySelectorOpacity))
+
+    if (!isNaN(overlaySelectorOpacity)) {
+      if (overlaySelectorOpacity > 1 || overlaySelectorOpacity < 0) {
+        alert(i18n.t('debugHelper.setOverlaySelectorOpacityError'))
+        debug.log(`${i18n.t('debugHelper.setOverlaySelectorOpacityError')}: ${overlaySelectorOpacity}`)
+        return
+      }
+
+      helper.config.overlaySelectorOpacity = Number(overlaySelectorOpacity)
+      debug.log(`${i18n.t('debugHelper.setOverlaySelectorOpacitySuccess')}: ${helper.config.overlaySelectorOpacity}`)
+      location.reload()
+    }
   }
 }
 

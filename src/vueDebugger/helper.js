@@ -35,6 +35,11 @@ window.vueDebugHelper = {
       entryTypes: ['element', 'navigation', 'resource', 'mark', 'measure', 'paint', 'longtask']
     },
 
+    /* 是否开启编辑辅助功能 */
+    editingAssistance: {
+      enabled: false
+    },
+
     /* 控制接口缓存 */
     ajaxCache: {
       enabled: false,
@@ -83,7 +88,9 @@ window.vueDebugHelper = {
       enabled: false,
       filters: [],
       count: 1024
-    }
+    },
+
+    overlaySelectorOpacity: 0.15
   }
 }
 

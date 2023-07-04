@@ -11,6 +11,7 @@ import vueConfigInit from './vueConfig'
 import inspect from './inspect'
 import performanceObserver from './performanceObserver'
 import functionCall from './functionCall'
+import editingAssistance from './editingAssistance'
 
 import {
   isInIframe
@@ -31,6 +32,8 @@ if (window.GM_getResourceText && window.GM_addStyle) {
 }
 
 function init (win) {
+  editingAssistance(win)
+
   /* 注册接口拦截功能和接口数据缓存功能 */
   ajaxHooks.init(win)
 

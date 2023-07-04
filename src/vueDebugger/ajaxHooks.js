@@ -12,6 +12,7 @@ import { networkProxy, unNetworkProxy } from '../libs/network-hook/index'
 import cacheStore from './cacheStore'
 import helper from './helper'
 import {
+  // copyToClipboard,
   filtersMatch
 } from './utils'
 
@@ -38,6 +39,25 @@ function isNeedBlockAjax (config) {
   }
 }
 
+/* 基于接口拦截的编辑辅助功能 */
+// function editingAssistance (config) {
+//   const editingAssistance = helper.config.editingAssistance
+//   if (!editingAssistance.enabled) {
+//     return false
+//   }
+
+//   debug.log(`[editingAssistance] ${config.url}`, config)
+
+//   /* 检测到请求了在编辑器中打开的接口，则将地址的file后面的参数解析出来，并将其复制到剪切板 */
+//   if (config.url.indexOf('open-in-editor?file=') > -1) {
+//     const file = config.url.split('open-in-editor?file=')[1]
+//     if (file) {
+//       debug.log(`[componentFilePath] ${file}`)
+//       copyToClipboard(file)
+//     }
+//   }
+// }
+
 let ajaxHooksWin = window
 
 const ajaxHooks = {
@@ -45,6 +65,8 @@ const ajaxHooks = {
     networkProxy({
       onRequest: async (config, handler, isFetch) => {
         const fetchTips = isFetch ? 'fetch ' : ''
+
+        // editingAssistance(config)
 
         if (isNeedBlockAjax(config)) {
           handler.reject(new Error('ajax blocked'))
@@ -111,7 +133,9 @@ const ajaxHooks = {
     if (force === true) {
       unNetworkProxy(win)
     } else {
-      if (!helper.config.ajaxCache.enabled && !helper.config.blockAjax.enabled && !helper.config.replaceAjax.enabled) {
+      const conf = helper.config
+      const needUnHook = !conf.ajaxCache.enabled || !conf.blockAjax.enabled || !conf.replaceAjax.enabled
+      if (needUnHook) {
         unNetworkProxy(win)
       }
     }
@@ -120,7 +144,9 @@ const ajaxHooks = {
   init (win) {
     ajaxHooksWin = win
 
-    if (helper.config.ajaxCache.enabled || helper.config.blockAjax.enabled || helper.config.replaceAjax.enabled) {
+    const conf = helper.config
+    const needHook = conf.ajaxCache.enabled || conf.blockAjax.enabled || conf.replaceAjax.enabled
+    if (needHook) {
       ajaxHooks.hook(ajaxHooksWin)
     }
 

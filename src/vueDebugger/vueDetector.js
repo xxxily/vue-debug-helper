@@ -93,13 +93,13 @@ function vueDetect (win, callback) {
     }
 
     // Method 2: Check  Vue 3
-    const vueDetected = !!(win.__VUE__)
-    if (vueDetected) {
-      debug.info(`------------- Vue global detected (${win.__VUE__.version}) -------------`)
-      detectSuc = true
-      callback(win.__VUE__)
-      return
-    }
+    // const vueDetected = !!(win.__VUE__)
+    // if (vueDetected) {
+    //   debug.info(`------------- Vue global detected (${win.__VUE__.version}) -------------`)
+    //   detectSuc = true
+    //   callback(win.__VUE__)
+    //   return
+    // }
 
     // Method 3: Scan all elements inside document
     const all = document.querySelectorAll('*')

@@ -19,6 +19,8 @@ export default {
       lifecycleFilters: 'Enter the lifecycle name to be printed, multiple available, or | separated, supported values: beforeCreate|created|beforeMount|mounted|beforeUpdate|updated|activated|deactivated|beforeDestroy|destroyed',
       componentFilters: 'Enter the name of the component to be printed, multiple available, or | separated, if not input, print all components, add * after the string to perform fuzzy matching'
     },
+    setOverlaySelectorOpacity: 'Overlay selector opacity',
+    setOverlaySelectorOpacityError: 'The opacity of the block must be a number between 0 and 1',
     findComponents: 'Find Components',
     findComponentsPrompt: {
       filters: 'Enter the name of the component to find, or uid, multiple available, or | separated, followed by * to perform fuzzy matching'
@@ -56,6 +58,10 @@ export default {
     enableAjaxCacheTips: 'The interface cache function is enabled',
     disableAjaxCacheTips: 'The interface cache function has been closed',
     toggleAjaxCache: 'Enable/disable interface cache',
+    editingAssistance: {
+      on: 'Turn on editing assistance',
+      off: 'Turn off editing assistance'
+    },
     ajaxCacheStatus: {
       on: 'Enable interface cache',
       off: 'Turn off the interface cache'

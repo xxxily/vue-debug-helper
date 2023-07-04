@@ -23,6 +23,7 @@
 // @grant        GM_getValue
 // @grant        GM_deleteValue
 // @grant        GM_listValues
+// @grant        GM_setClipboard
 // @grant        GM_addValueChangeListener
 // @grant        GM_removeValueChangeListener
 // @grant        GM_registerMenuCommand
@@ -329,6 +330,16 @@ function copyToClipboard (text) {
     input.select();
     document.execCommand('copy');
     document.body.removeChild(input);
+
+    /* 标准复制到剪切板的方法 */
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text);
+    }
+
+    /* 如果是油猴脚本，则使用油猴的复制到剪切板的方法 */
+    if (window.GM_setClipboard) {
+      window.GM_setClipboard(text, 'text');
+    }
   }
 }
 
@@ -368,6 +379,11 @@ window.vueDebugHelper = {
       enabled: false,
       // https://runebook.dev/zh-CN/docs/dom/performanceentry/entrytype
       entryTypes: ['element', 'navigation', 'resource', 'mark', 'measure', 'paint', 'longtask']
+    },
+
+    /* 是否开启编辑辅助功能 */
+    editingAssistance: {
+      enabled: false
     },
 
     /* 控制接口缓存 */
@@ -418,7 +434,9 @@ window.vueDebugHelper = {
       enabled: false,
       filters: [],
       count: 1024
-    }
+    },
+
+    overlaySelectorOpacity: 0.15
   }
 };
 
@@ -1126,6 +1144,8 @@ var zhCN = {
       lifecycleFilters: '输入要打印的生命周期名称，多个可用,或|分隔，支持的值：beforeCreate|created|beforeMount|mounted|beforeUpdate|updated|activated|deactivated|beforeDestroy|destroyed',
       componentFilters: '输入要打印的组件名称，多个可用,或|分隔，不输入则打印所有组件，字符串后面加*可执行模糊匹配'
     },
+    setOverlaySelectorOpacity: '区块透明度',
+    setOverlaySelectorOpacityError: '区块透明度必须为0-1之间的数字',
     findComponents: '查找组件',
     findComponentsPrompt: {
       filters: '输入要查找的组件名称，或uid，多个可用,或|分隔，字符串后面加*可执行模糊匹配'
@@ -1163,6 +1183,10 @@ var zhCN = {
     enableAjaxCacheTips: '接口缓存功能已开启',
     disableAjaxCacheTips: '接口缓存功能已关闭',
     toggleAjaxCache: '开启/关闭接口缓存',
+    editingAssistance: {
+      on: '开启编辑辅助',
+      off: '关闭编辑辅助'
+    },
     ajaxCacheStatus: {
       on: '开启接口缓存',
       off: '关闭接口缓存'
@@ -1239,6 +1263,8 @@ var enUS = {
       lifecycleFilters: 'Enter the lifecycle name to be printed, multiple available, or | separated, supported values: beforeCreate|created|beforeMount|mounted|beforeUpdate|updated|activated|deactivated|beforeDestroy|destroyed',
       componentFilters: 'Enter the name of the component to be printed, multiple available, or | separated, if not input, print all components, add * after the string to perform fuzzy matching'
     },
+    setOverlaySelectorOpacity: 'Overlay selector opacity',
+    setOverlaySelectorOpacityError: 'The opacity of the block must be a number between 0 and 1',
     findComponents: 'Find Components',
     findComponentsPrompt: {
       filters: 'Enter the name of the component to find, or uid, multiple available, or | separated, followed by * to perform fuzzy matching'
@@ -1276,6 +1302,10 @@ var enUS = {
     enableAjaxCacheTips: 'The interface cache function is enabled',
     disableAjaxCacheTips: 'The interface cache function has been closed',
     toggleAjaxCache: 'Enable/disable interface cache',
+    editingAssistance: {
+      on: 'Turn on editing assistance',
+      off: 'Turn off editing assistance'
+    },
     ajaxCacheStatus: {
       on: 'Enable interface cache',
       off: 'Turn off the interface cache'
@@ -1338,6 +1368,8 @@ var zhTW = {
       lifecycleFilters: '輸入要打印的生命週期名稱，多個可用,或|分隔，支持的值：beforeCreate|created|beforeMount|mounted|beforeUpdate|updated|activated|deactivated|beforeDestroy|destroyed',
       componentFilters: '輸入要打印的組件名稱，多個可用,或|分隔，不輸入則打印所有組件，字符串後面加*可執行模糊匹配'
     },
+    setOverlaySelectorOpacity: '區塊透明度',
+    setOverlaySelectorOpacityError: '區塊透明度必須是0-1之間的數字',
     findComponents: '查找組件',
     findComponentsPrompt: {
       filters: '輸入要查找的組件名稱，或uid，多個可用,或|分隔，字符串後面加*可執行模糊匹配'
@@ -1375,6 +1407,10 @@ var zhTW = {
     enableAjaxCacheTips: '接口緩存功能已開啟',
     disableAjaxCacheTips: '接口緩存功能已關閉',
     toggleAjaxCache: '開啟/關閉接口緩存',
+    editingAssistance: {
+      on: '開啟編輯輔助',
+      off: '關閉編輯輔助'
+    },
     ajaxCacheStatus: {
       on: '開啟接口緩存',
       off: '關閉接口緩存'
@@ -2780,6 +2816,25 @@ function isNeedBlockAjax (config) {
   }
 }
 
+/* 基于接口拦截的编辑辅助功能 */
+// function editingAssistance (config) {
+//   const editingAssistance = helper.config.editingAssistance
+//   if (!editingAssistance.enabled) {
+//     return false
+//   }
+
+//   debug.log(`[editingAssistance] ${config.url}`, config)
+
+//   /* 检测到请求了在编辑器中打开的接口，则将地址的file后面的参数解析出来，并将其复制到剪切板 */
+//   if (config.url.indexOf('open-in-editor?file=') > -1) {
+//     const file = config.url.split('open-in-editor?file=')[1]
+//     if (file) {
+//       debug.log(`[componentFilePath] ${file}`)
+//       copyToClipboard(file)
+//     }
+//   }
+// }
+
 let ajaxHooksWin = window;
 
 const ajaxHooks = {
@@ -2787,6 +2842,8 @@ const ajaxHooks = {
     networkProxy({
       onRequest: async (config, handler, isFetch) => {
         const fetchTips = isFetch ? 'fetch ' : '';
+
+        // editingAssistance(config)
 
         if (isNeedBlockAjax(config)) {
           handler.reject(new Error('ajax blocked'));
@@ -2853,7 +2910,9 @@ const ajaxHooks = {
     if (force === true) {
       unNetworkProxy(win);
     } else {
-      if (!helper.config.ajaxCache.enabled && !helper.config.blockAjax.enabled && !helper.config.replaceAjax.enabled) {
+      const conf = helper.config;
+      const needUnHook = !conf.ajaxCache.enabled || !conf.blockAjax.enabled || !conf.replaceAjax.enabled;
+      if (needUnHook) {
         unNetworkProxy(win);
       }
     }
@@ -2862,7 +2921,9 @@ const ajaxHooks = {
   init (win) {
     ajaxHooksWin = win;
 
-    if (helper.config.ajaxCache.enabled || helper.config.blockAjax.enabled || helper.config.replaceAjax.enabled) {
+    const conf = helper.config;
+    const needHook = conf.ajaxCache.enabled || conf.blockAjax.enabled || conf.replaceAjax.enabled;
+    if (needHook) {
       ajaxHooks.hook(ajaxHooksWin);
     }
 
@@ -3236,6 +3297,14 @@ const inspect = {
               }
             }
           },
+
+          /* 设置框选层的透明度 */
+          setOverlaySelectorOpacity: {
+            name: i18n.t('debugHelper.setOverlaySelectorOpacity'),
+            icon: 'fa-regular fa-adjust',
+            callback: functionCall.setOverlaySelectorOpacity
+          },
+
           toggleSimplifyMode: {
             name: conf.contextMenu.simplify ? i18n.t('debugHelper.simplifyMode.disable') : i18n.t('debugHelper.simplifyMode.enabled'),
             icon: 'fa-regular fa-compress',
@@ -3300,6 +3369,7 @@ const inspect = {
       overlay = document.createElement('div');
       overlay.id = overlaySelector;
 
+      const overlaySelectorOpacity = Number(helper.config.overlaySelectorOpacity) || 0.15;
       const infoBox = document.createElement('div');
       infoBox.className = 'vue-debugger-component-info';
 
@@ -3311,7 +3381,7 @@ const inspect = {
         #${overlaySelector} {
           position: fixed;
           z-index: 2147483647;
-          background-color: rgba(65, 184, 131, 0.15);
+          background-color: rgba(65, 184, 131, ${overlaySelectorOpacity});
           padding: 5px;
           font-size: 11px;
           pointer-events: none;
@@ -3632,6 +3702,20 @@ const functionCall = {
     debug.log(`${i18n.t('debugHelper.togglePerformanceObserver')} success (${helper.config.performanceObserver.enabled})`);
   },
 
+  useEditingAssistance () {
+    helper.config.editingAssistance.enabled = true;
+    debug.log(`${i18n.t('debugHelper.editingAssistance.on')}`);
+  },
+
+  disableEditingAssistance () {
+    helper.config.editingAssistance.enabled = false;
+    debug.log(`${i18n.t('debugHelper.editingAssistance.off')}`);
+  },
+
+  toggleEditingAssistance () {
+    helper.config.editingAssistance.enabled ? this.disableEditingAssistance() : this.useEditingAssistance();
+  },
+
   useAjaxCache () {
     helper.config.ajaxCache.enabled = true;
 
@@ -3769,6 +3853,22 @@ const functionCall = {
     helper.config.contextMenu.simplify = !helper.config.contextMenu.simplify;
     const msg = helper.config.contextMenu.simplify ? i18n.t('debugHelper.simplifyMode.enabled') : i18n.t('debugHelper.simplifyMode.disable');
     debug.log(`${msg} success`);
+  },
+
+  setOverlaySelectorOpacity () {
+    const overlaySelectorOpacity = Number(window.prompt(i18n.t('debugHelper.setOverlaySelectorOpacity'), helper.config.overlaySelectorOpacity));
+
+    if (!isNaN(overlaySelectorOpacity)) {
+      if (overlaySelectorOpacity > 1 || overlaySelectorOpacity < 0) {
+        alert(i18n.t('debugHelper.setOverlaySelectorOpacityError'));
+        debug.log(`${i18n.t('debugHelper.setOverlaySelectorOpacityError')}: ${overlaySelectorOpacity}`);
+        return
+      }
+
+      helper.config.overlaySelectorOpacity = Number(overlaySelectorOpacity);
+      debug.log(`${i18n.t('debugHelper.setOverlaySelectorOpacitySuccess')}: ${helper.config.overlaySelectorOpacity}`);
+      location.reload();
+    }
   }
 };
 
@@ -3863,6 +3963,14 @@ function menuRegister (vueDetectStatus) {
     }
 
     const commonMenu = [
+      {
+        title: conf.editingAssistance.enabled ? i18n.t('debugHelper.editingAssistance.off') : i18n.t('debugHelper.editingAssistance.on'),
+        fn: () => {
+          conf.editingAssistance.enabled ? alert(i18n.t('debugHelper.editingAssistance.off')) : alert(i18n.t('debugHelper.editingAssistance.on'));
+          functionCall.toggleEditingAssistance();
+          location.reload();
+        }
+      },
       {
         title: conf.ajaxCache.enabled ? i18n.t('debugHelper.ajaxCacheStatus.off') : i18n.t('debugHelper.ajaxCacheStatus.on'),
         fn: () => { functionCall.toggleAjaxCache(); }
@@ -4594,13 +4702,13 @@ function vueDetect (win, callback) {
     }
 
     // Method 2: Check  Vue 3
-    const vueDetected = !!(win.__VUE__);
-    if (vueDetected) {
-      debug.info(`------------- Vue global detected (${win.__VUE__.version}) -------------`);
-      detectSuc = true;
-      callback(win.__VUE__);
-      return
-    }
+    // const vueDetected = !!(win.__VUE__)
+    // if (vueDetected) {
+    //   debug.info(`------------- Vue global detected (${win.__VUE__.version}) -------------`)
+    //   detectSuc = true
+    //   callback(win.__VUE__)
+    //   return
+    // }
 
     // Method 3: Scan all elements inside document
     const all = document.querySelectorAll('*');
@@ -4711,6 +4819,49 @@ function vueConfigInit (Vue, config) {
   }
 }
 
+function editingAssistance (window) {
+  if (!helper.config.editingAssistance.enabled) {
+    return
+  }
+
+  debug.log('[editingAssistance] init');
+
+  fetchProxy({
+    onRequest: async (config, handler, isFetch) => {
+      // debug.log(`[editingAssistance] ${config.url}`, config)
+
+      /* 检测到请求了在编辑器中打开的接口，则将地址的file后面的参数解析出来，并将其复制到剪切板 */
+      if (config.url.indexOf('open-in-editor?file=') > -1) {
+        const file = config.url.split('open-in-editor?file=')[1];
+        if (file) {
+          debug.log(`[componentFilePath] ${file}`);
+          copyToClipboard(file);
+        }
+      }
+
+      handler.next(config);
+    },
+    onError: (err, handler, isFetch) => {
+      handler.next(err);
+    },
+    onResponse: async (response, handler, isFetch) => {
+      // debug.log('[fetchHooks onResponse]', response)
+
+      /* 当和Ajax-hook混合使用时，需要判断isFetch，进行区分处理 */
+      // if (isFetch) {
+      //   const res = response.clone()
+      //   const result = await res.json().catch((err) => {
+      //     // 解析出错，忽略报错
+      //     if (err) {}
+      //   })
+      //   debug.log('[fetchHooks onResponse json]', result)
+      // }
+
+      handler.next(response);
+    }
+  }, window);
+}
+
 /**
  * 判断是否处于Iframe中
  * @returns {boolean}
@@ -4778,6 +4929,8 @@ if (window.GM_getResourceText && window.GM_addStyle) {
 }
 
 function init (win) {
+  editingAssistance(win);
+
   /* 注册接口拦截功能和接口数据缓存功能 */
   ajaxHooks.init(win);
 

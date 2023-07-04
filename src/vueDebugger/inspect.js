@@ -324,6 +324,14 @@ const inspect = {
               }
             }
           },
+
+          /* 设置框选层的透明度 */
+          setOverlaySelectorOpacity: {
+            name: i18n.t('debugHelper.setOverlaySelectorOpacity'),
+            icon: 'fa-regular fa-adjust',
+            callback: functionCall.setOverlaySelectorOpacity
+          },
+
           toggleSimplifyMode: {
             name: conf.contextMenu.simplify ? i18n.t('debugHelper.simplifyMode.disable') : i18n.t('debugHelper.simplifyMode.enabled'),
             icon: 'fa-regular fa-compress',
@@ -388,6 +396,7 @@ const inspect = {
       overlay = document.createElement('div')
       overlay.id = overlaySelector
 
+      const overlaySelectorOpacity = Number(helper.config.overlaySelectorOpacity) || 0.15
       const infoBox = document.createElement('div')
       infoBox.className = 'vue-debugger-component-info'
 
@@ -399,7 +408,7 @@ const inspect = {
         #${overlaySelector} {
           position: fixed;
           z-index: 2147483647;
-          background-color: rgba(65, 184, 131, 0.15);
+          background-color: rgba(65, 184, 131, ${overlaySelectorOpacity});
           padding: 5px;
           font-size: 11px;
           pointer-events: none;

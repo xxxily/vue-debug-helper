@@ -98,6 +98,14 @@ function menuRegister (vueDetectStatus) {
 
     const commonMenu = [
       {
+        title: conf.editingAssistance.enabled ? i18n.t('debugHelper.editingAssistance.off') : i18n.t('debugHelper.editingAssistance.on'),
+        fn: () => {
+          conf.editingAssistance.enabled ? alert(i18n.t('debugHelper.editingAssistance.off')) : alert(i18n.t('debugHelper.editingAssistance.on'))
+          functionCall.toggleEditingAssistance()
+          location.reload()
+        }
+      },
+      {
         title: conf.ajaxCache.enabled ? i18n.t('debugHelper.ajaxCacheStatus.off') : i18n.t('debugHelper.ajaxCacheStatus.on'),
         fn: () => { functionCall.toggleAjaxCache() }
       },

@@ -19,6 +19,8 @@ export default {
       lifecycleFilters: '輸入要打印的生命週期名稱，多個可用,或|分隔，支持的值：beforeCreate|created|beforeMount|mounted|beforeUpdate|updated|activated|deactivated|beforeDestroy|destroyed',
       componentFilters: '輸入要打印的組件名稱，多個可用,或|分隔，不輸入則打印所有組件，字符串後面加*可執行模糊匹配'
     },
+    setOverlaySelectorOpacity: '區塊透明度',
+    setOverlaySelectorOpacityError: '區塊透明度必須是0-1之間的數字',
     findComponents: '查找組件',
     findComponentsPrompt: {
       filters: '輸入要查找的組件名稱，或uid，多個可用,或|分隔，字符串後面加*可執行模糊匹配'
@@ -56,6 +58,10 @@ export default {
     enableAjaxCacheTips: '接口緩存功能已開啟',
     disableAjaxCacheTips: '接口緩存功能已關閉',
     toggleAjaxCache: '開啟/關閉接口緩存',
+    editingAssistance: {
+      on: '開啟編輯輔助',
+      off: '關閉編輯輔助'
+    },
     ajaxCacheStatus: {
       on: '開啟接口緩存',
       off: '關閉接口緩存'

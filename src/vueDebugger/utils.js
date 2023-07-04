@@ -162,6 +162,16 @@ function copyToClipboard (text) {
     input.select()
     document.execCommand('copy')
     document.body.removeChild(input)
+
+    /* 标准复制到剪切板的方法 */
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+    }
+
+    /* 如果是油猴脚本，则使用油猴的复制到剪切板的方法 */
+    if (window.GM_setClipboard) {
+      window.GM_setClipboard(text, 'text')
+    }
   }
 }
 
